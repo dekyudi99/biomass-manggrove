@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    container_name: biomass_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount folder backend lokal ke /app di container (Live reload aktif)
+      - ./backend-fastapi:/app
+      - ./backend-fastapi/gee-key.json:/app/credentials/gee-key.json
+    env_file:
+      - ./backend-fastapi/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./frontend-biomass
+      dockerfile: Dockerfile
+    container_name: biomass_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount folder frontend lokal ke /app di container
+      - ./frontend-biomass:/app
+      # Anonymous volume agar node_modules di dalam container tidak tertimpa oleh host
+      - /app/node_modules
+    env_file:
+      - ./frontend-biomass/.env
+    depends_on:
+      - backend
