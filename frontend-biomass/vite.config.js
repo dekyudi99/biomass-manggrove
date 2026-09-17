@@ -14,5 +14,6 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    allowedHosts: ['biomass-manggrove.ikya.my.id'],
   },
 })
