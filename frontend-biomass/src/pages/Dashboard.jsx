@@ -1,13 +1,15 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   MapContainer,
   TileLayer,
+  WMSTileLayer,
   Marker,
   Popup,
   Polygon,
   Polyline,
   CircleMarker,
   Tooltip,
+  useMap,
   useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
@@ -15,6 +17,9 @@ import 'leaflet/dist/leaflet.css'
 import LayerBaseControl from '../components/LayerBaseControl'
 import { BASE_LAYERS } from '../constants/layers'
 import Sidebar from '../components/Sidebar'
+import SpatialSidebar from '../components/SpatialSidebar/SpatialSidebar'
+import MapFlyController from '../components/MapFlyController'
+import { useLanguage } from '../context/LanguageContext'
 
 // Fix icon marker bawaan Leaflet di React/Vite
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -62,6 +67,7 @@ function MapEvents({ mode, isAreaClosed, onMapClick }) {
 }
 
 const Dashboard = () => {
+  const { t, currentLanguage } = useLanguage()
   const defaultCenter = [13.652913414797453, 100.49455240687257]
   const [activeLayer, setActiveLayer] = useState('osm')
   const currentLayer = BASE_LAYERS[activeLayer]
@@ -78,29 +84,118 @@ const Dashboard = () => {
   const [areaPoints, setAreaPoints] = useState([])
   const [isAreaClosed, setIsAreaClosed] = useState(false)
 
+  // State untuk Layer & Group WMS AstraGIS yang aktif di peta
+  const [visibleLayers, setVisibleLayers] = useState([])
+  const [visibleGroups, setVisibleGroups] = useState([])
+  const [flyTarget, setFlyTarget] = useState(null)
+
+  const handleZoomToLayer = (target) => {
+    if (target?.bbox) {
+      setFlyTarget({ bbox: target.bbox, epsg: target.epsg, timestamp: Date.now() })
+    } else if (Array.isArray(target) && target.length === 4) {
+      setFlyTarget({ bbox: target, epsg: 4326, timestamp: Date.now() })
+    }
+  }
+
+  const handleZoomToGroup = (target) => {
+    if (target?.bbox) {
+      setFlyTarget({ bbox: target.bbox, epsg: target.epsg, timestamp: Date.now() })
+    } else if (Array.isArray(target) && target.length === 4) {
+      setFlyTarget({ bbox: target, epsg: 4326, timestamp: Date.now() })
+    }
+  }
+
+  const handleToggleLayer = (layer, isVisible) => {
+    if (isVisible) {
+      setVisibleLayers((prev) => [
+        ...prev.filter((l) => l.id !== layer.id),
+        { ...layer, opacity: 0.85 },
+      ])
+      if (layer.bbox) {
+        handleZoomToLayer(layer)
+      }
+    } else {
+      setVisibleLayers((prev) => prev.filter((l) => l.id !== layer.id))
+    }
+  }
+
+  const handleChangeLayerOpacity = (layerId, opacity) => {
+    setVisibleLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, opacity } : l))
+    )
+  }
+
+  const handleToggleGroup = (group, isVisible) => {
+    if (isVisible) {
+      setVisibleGroups((prev) => [
+        ...prev.filter((g) => g.id !== group.id),
+        { ...group, opacity: 0.85 },
+      ])
+      if (group.bbox) {
+        handleZoomToGroup(group)
+      }
+    } else {
+      setVisibleGroups((prev) => prev.filter((g) => g.id !== group.id))
+    }
+  }
+
+  const handleChangeGroupOpacity = (groupId, opacity) => {
+    setVisibleGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, opacity } : g))
+    )
+  }
+
+  // Callback saat style SLD layer diperbarui di GeoServer -> update styleVersion agar Leaflet memuat ulang tile tanpa reload halaman
+  const handleStyleApplied = (layerId) => {
+    const timestamp = Date.now()
+    setVisibleLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, styleVersion: timestamp } : l))
+    )
+  }
+
   // Hitung luas poligon hanya saat area sudah ditutup
   const areaHectares = useMemo(() => {
     if (!isAreaClosed || areaPoints.length < 3) return 0
     return calculatePolygonAreaInHectares(areaPoints)
   }, [areaPoints, isAreaClosed])
 
-  // Reverse Geocoding
+  // Helper resolve URL WMS dengan opsi override dari .env (VITE_GEOSERVER_WMS_URL)
+  const resolveWmsUrl = (wmsUrl) => {
+    const overrideBase = import.meta.env.VITE_GEOSERVER_WMS_URL
+    if (!overrideBase || !wmsUrl) return wmsUrl
+    try {
+      const parsed = new URL(wmsUrl)
+      const geoserverIdx = parsed.pathname.indexOf('/geoserver/')
+      const relPath =
+        geoserverIdx !== -1
+          ? parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
+          : parsed.pathname
+      return `${overrideBase.replace(/\/+$/, '')}${relPath}${parsed.search}`
+    } catch {
+      return wmsUrl
+    }
+  }
+
+  // Reverse Geocoding dengan bahasa dinamis sesuai pilihan user
   const fetchAddress = async (lat, lng) => {
     setIsAddressLoading(true)
     try {
+      const nominatimBase = (
+        import.meta.env.VITE_NOMINATIM_URL || 'https://nominatim.openstreetmap.org'
+      ).replace(/\/+$/, '')
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        `${nominatimBase}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         {
           headers: {
-            'Accept-Language': 'id',
+            'Accept-Language': currentLanguage || 'id',
           },
         }
       )
       const data = await response.json()
-      setPointAddress(data.display_name || 'Alamat tidak ditemukan')
+      setPointAddress(data.display_name || t('addressNotFound'))
     } catch (error) {
       console.error('Gagal mengambil data alamat:', error)
-      setPointAddress('Gagal memuat alamat')
+      setPointAddress(t('failedAddress'))
     } finally {
       setIsAddressLoading(false)
     }
@@ -126,7 +221,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <div className="relative h-[100dvh] w-screen overflow-hidden">
       {/* Sidebar Tool di Kiri Atas */}
       <Sidebar
         mode={mode}
@@ -143,6 +238,19 @@ const Dashboard = () => {
         onCloseArea={handleCloseArea}
       />
 
+      {/* Sidebar Spasial AstraGIS di Kanan Atas */}
+      <SpatialSidebar
+        visibleLayers={visibleLayers}
+        onToggleLayer={handleToggleLayer}
+        onChangeLayerOpacity={handleChangeLayerOpacity}
+        onZoomToLayer={handleZoomToLayer}
+        visibleGroups={visibleGroups}
+        onToggleGroup={handleToggleGroup}
+        onChangeGroupOpacity={handleChangeGroupOpacity}
+        onZoomToGroup={handleZoomToGroup}
+        onStyleApplied={handleStyleApplied}
+      />
+
       {/* Peta Utama */}
       <MapContainer
         center={defaultCenter}
@@ -152,6 +260,7 @@ const Dashboard = () => {
         className="h-full w-full z-0 cursor-crosshair"
       >
         <MapEvents mode={mode} isAreaClosed={isAreaClosed} onMapClick={handleMapClick} />
+        <MapFlyController flyTarget={flyTarget} />
 
         {/* TileLayer dasar */}
         <TileLayer
@@ -161,17 +270,51 @@ const Dashboard = () => {
           maxZoom={currentLayer.maxZoom}
         />
 
+        {/* Render Layer WMS AstraGIS yang Aktif (dengan cache-busting instant saat style diubah) */}
+        {visibleLayers.map((layer) => (
+          <WMSTileLayer
+            key={`wms-layer-${layer.id}-${layer.wms_layers_param}-${layer.styleVersion || 1}`}
+            url={resolveWmsUrl(layer.wms_url)}
+            params={{
+              layers: layer.wms_layers_param,
+              format: 'image/png',
+              transparent: true,
+              version: '1.1.1',
+              _t: layer.styleVersion || 1,
+            }}
+            opacity={layer.opacity ?? 0.85}
+            zIndex={100}
+          />
+        ))}
+
+        {/* Render Layer Group WMS AstraGIS yang Aktif */}
+        {visibleGroups.map((grp) => (
+          <WMSTileLayer
+            key={`wms-grp-${grp.id}-${grp.wms_layers_param}-${grp.styleVersion || 1}`}
+            url={resolveWmsUrl(grp.wms_url)}
+            params={{
+              layers: grp.wms_layers_param,
+              format: 'image/png',
+              transparent: true,
+              version: '1.1.1',
+              _t: grp.styleVersion || 1,
+            }}
+            opacity={grp.opacity ?? 0.85}
+            zIndex={100}
+          />
+        ))}
+
         {/* 1. RENDER TITIK PIN LOKASI */}
         {selectedPoint && (
           <Marker position={[selectedPoint.lat, selectedPoint.lng]}>
             <Popup>
               <div className="text-xs text-gray-800 max-w-xs">
-                <p className="font-bold text-emerald-800 text-sm mb-1">📍 Titik Terpilih</p>
+                <p className="font-bold text-emerald-800 text-sm mb-1">{t('selectedPointMarker')}</p>
                 <p className="font-mono text-[11px] text-gray-500 mb-1">
                   Lat: {selectedPoint.lat.toFixed(5)}, Lng: {selectedPoint.lng.toFixed(5)}
                 </p>
                 <p className="text-gray-700 leading-snug">
-                  {isAddressLoading ? 'Memuat alamat...' : pointAddress}
+                  {isAddressLoading ? t('fetchingAddress') : pointAddress}
                 </p>
               </div>
             </Popup>
@@ -191,9 +334,9 @@ const Dashboard = () => {
           >
             <Popup>
               <div className="text-xs text-gray-800">
-                <p className="font-bold text-emerald-800">🌿 Area Mangrove Selesai</p>
+                <p className="font-bold text-emerald-800">{t('mangroveAreaDone')}</p>
                 <p className="mt-1">
-                  Luas: <strong>{areaHectares.toFixed(2)} Ha</strong>
+                  {t('areaSize')} <strong>{areaHectares.toFixed(2)} Ha</strong>
                 </p>
                 <p className="text-gray-500 text-[10px]">
                   ≈ {(areaHectares * 10000).toLocaleString('id-ID')} m²
@@ -243,7 +386,7 @@ const Dashboard = () => {
               {canCloseNow && (
                 <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent>
                   <span className="text-[11px] font-bold text-amber-900">
-                    🎯 Klik di sini untuk menutup area
+                    {t('clickHereToCloseArea')}
                   </span>
                 </Tooltip>
               )}

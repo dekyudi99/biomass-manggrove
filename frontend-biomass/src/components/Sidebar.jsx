@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLanguage } from '../context/LanguageContext'
 
 const Sidebar = ({
   mode,
@@ -14,6 +15,7 @@ const Sidebar = ({
   pointAddress,
   onCloseArea,
 }) => {
+  const { t } = useLanguage()
   const [isOpen, setIsOpen] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -38,33 +40,33 @@ const Sidebar = ({
   }
 
   return (
-    <aside className="absolute top-4 left-4 z-[1000] flex flex-col gap-2 pointer-events-none">
+    <aside className="absolute top-3 left-3 sm:top-4 sm:left-4 z-[1000] flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-1.5rem)]">
       {/* Tombol Buka/Tutup Sidebar jika diminimize */}
       <div className="pointer-events-auto flex items-center gap-2">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center gap-2 font-medium text-sm cursor-pointer"
+          className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center gap-2 font-medium text-xs sm:text-sm cursor-pointer"
         >
-          <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          <span>{isOpen ? 'Tutup Panel' : 'Panel Mangrove Tools'}</span>
+          <span>{isOpen ? t('closePanel') : t('openPanel')}</span>
         </button>
       </div>
 
       {/* Konten Panel Utama */}
       {isOpen && (
-        <div className="pointer-events-auto w-84 sm:w-96 max-h-[85vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/80 p-4 transition-all duration-300 flex flex-col gap-4 text-gray-800">
+        <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm max-h-[calc(100dvh-5.5rem)] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/80 p-3 sm:p-4 transition-all duration-300 flex flex-col gap-3 sm:gap-4 text-gray-800">
           {/* Header Panel */}
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div>
               <h2 className="text-base font-bold text-gray-900 flex items-center gap-1.5">
-                <span>🌿</span> Mangrove Biomass GIS
+                <span>🌿</span> {t('appTitle')}
               </h2>
-              <p className="text-xs text-gray-500">Alat Pemetaan Titik & Area Poligon</p>
+              <p className="text-xs text-gray-500">{t('appSubtitle')}</p>
             </div>
             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">
-              GEE Ready
+              {t('geeReady')}
             </span>
           </div>
 
@@ -82,7 +84,7 @@ const Sidebar = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Titik Lokasi
+              {t('pointMode')}
             </button>
 
             <button
@@ -96,7 +98,7 @@ const Sidebar = ({
               <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
-              Area Poligon
+              {t('areaMode')}
             </button>
           </div>
 
@@ -104,19 +106,19 @@ const Sidebar = ({
           {mode === 'point' && (
             <div className="flex flex-col gap-3">
               <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-xl p-3 text-xs text-emerald-900 leading-relaxed">
-                👉 <strong>Cara Pakai:</strong> Klik sembarang lokasi di peta untuk menaruh pin marker, melihat koordinat, dan mengambil alamat otomatis.
+                👉 <strong>{t('pointUsageTitle')}</strong> {t('pointUsageDesc')}
               </div>
 
               {selectedPoint ? (
                 <div className="flex flex-col gap-2.5 bg-gray-50 border border-gray-200/70 rounded-xl p-3">
                   {/* Koordinat */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Koordinat:</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('coordinates')}:</span>
                     <button
                       onClick={() => handleCopyCoord(`${selectedPoint.lat.toFixed(6)}, ${selectedPoint.lng.toFixed(6)}`)}
                       className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer"
                     >
-                      {copied ? '✓ Tersalin' : '📋 Salin'}
+                      {copied ? t('copied') : t('copy')}
                     </button>
                   </div>
                   <div className="font-mono text-xs font-bold text-gray-800 bg-white px-2.5 py-1.5 rounded-lg border border-gray-200 flex justify-between">
@@ -126,14 +128,14 @@ const Sidebar = ({
 
                   {/* Alamat Lengkap */}
                   <div className="mt-1">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alamat Lokasi:</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('locationAddress')}:</span>
                     <div className="mt-1 text-xs text-gray-700 bg-white p-2.5 rounded-lg border border-gray-200 min-h-[48px] leading-relaxed">
                       {isAddressLoading ? (
                         <div className="flex items-center gap-2 text-gray-400 italic">
-                          <span className="animate-spin text-base">⏳</span> Mengambil data alamat...
+                          <span className="animate-spin text-base">⏳</span> {t('fetchingAddress')}
                         </div>
                       ) : (
-                        pointAddress || 'Alamat tidak ditemukan'
+                        pointAddress || t('addressNotFound')
                       )}
                     </div>
                   </div>
@@ -142,12 +144,12 @@ const Sidebar = ({
                     onClick={handleResetPoint}
                     className="mt-1 w-full py-1.5 px-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium transition-colors cursor-pointer"
                   >
-                    Hapus Titik Pin
+                    {t('deletePointPin')}
                   </button>
                 </div>
               ) : (
                 <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-xl">
-                  Belum ada titik yang dipilih di peta.
+                  {t('noPointSelected')}
                 </div>
               )}
             </div>
@@ -160,11 +162,11 @@ const Sidebar = ({
               <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-xl p-3 text-xs text-emerald-900 leading-relaxed">
                 {!isAreaClosed ? (
                   <>
-                    👉 <strong>Cara Menggambar:</strong> Klik titik-titik di peta keliling area. Jika sudah selesai (min. 3 titik), <strong>klik titik awal (🎯) di peta</strong> atau tombol di bawah untuk menyambungkan dan mengunci area.
+                    👉 <strong>{t('drawUsageTitle')}</strong> {t('drawUsageDesc')}
                   </>
                 ) : (
                   <>
-                    ✅ <strong>Area Berhasil Ditutup:</strong> Area poligon sudah terbentuk dan luasnya telah dihitung. Anda siap menganalisisnya ke Google Earth Engine!
+                    ✅ <strong>{t('areaClosedTitle')}</strong> {t('areaClosedDesc')}
                   </>
                 )}
               </div>
@@ -172,7 +174,7 @@ const Sidebar = ({
               {/* Status Area & Luas */}
               <div className="bg-gray-50 border border-gray-200/70 rounded-xl p-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 font-medium">Status Area:</span>
+                  <span className="text-gray-500 font-medium">{t('areaStatus')}</span>
                   <span
                     className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
                       isAreaClosed
@@ -183,22 +185,22 @@ const Sidebar = ({
                     }`}
                   >
                     {isAreaClosed
-                      ? '✓ Terkunci (Selesai)'
+                      ? t('statusLocked')
                       : areaPoints.length >= 3
-                      ? 'Siap Ditutup'
-                      : 'Sedang Menggambar...'}
+                      ? t('statusReadyToClose')
+                      : t('statusDrawing')}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 font-medium">Titik Sudut:</span>
+                  <span className="text-gray-500 font-medium">{t('vertices')}</span>
                   <span className="font-bold text-gray-800 bg-white px-2 py-0.5 rounded border border-gray-200">
-                    {areaPoints.length} Titik
+                    {areaPoints.length} {t('pointsUnit')}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs border-t border-gray-200/60 pt-2">
-                  <span className="text-gray-500 font-medium">Estimasi Luas:</span>
+                  <span className="text-gray-500 font-medium">{t('estimatedArea')}</span>
                   <div className="text-right">
                     <span className="font-bold text-emerald-700 text-sm">
                       {isAreaClosed && areaPoints.length >= 3 ? `${areaHectares.toFixed(2)} Ha` : '-'}
@@ -218,7 +220,7 @@ const Sidebar = ({
                   onClick={onCloseArea}
                   className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 animate-bounce"
                 >
-                  <span>🎯</span> Sambungkan & Kunci Area
+                  <span>🎯</span> {t('connectAndLockArea')}
                 </button>
               )}
 
@@ -228,7 +230,7 @@ const Sidebar = ({
                   onClick={() => setIsAreaClosed(false)}
                   className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-lg border border-gray-300 transition-all cursor-pointer flex items-center justify-center gap-1"
                 >
-                  <span>✏️</span> Buka Kembali / Tambah Titik
+                  <span>✏️</span> {t('reopenOrAddPoints')}
                 </button>
               )}
 
@@ -239,14 +241,14 @@ const Sidebar = ({
                   disabled={areaPoints.length === 0}
                   className="flex-1 py-1.5 px-3 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium text-gray-700 transition-colors cursor-pointer"
                 >
-                  ↩ Undo Titik
+                  ↩ {t('undoPoint')}
                 </button>
                 <button
                   onClick={handleResetArea}
                   disabled={areaPoints.length === 0}
                   className="flex-1 py-1.5 px-3 rounded-lg border border-red-200 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium text-red-600 transition-colors cursor-pointer"
                 >
-                  🗑️ Reset Area
+                  🗑️ {t('resetArea')}
                 </button>
               </div>
 
@@ -269,10 +271,16 @@ const Sidebar = ({
               {/* Tombol Aksi Analisis GEE (Hanya aktif jika SUDAH DITUTUP) */}
               <button
                 disabled={!isAreaClosed || areaPoints.length < 3}
-                onClick={() => alert(`Area poligon (${areaPoints.length} titik, ${areaHectares.toFixed(2)} Ha) siap dikirim ke backend FastAPI GEE!`)}
+                onClick={() =>
+                  alert(
+                    t('geeReadyAlert')
+                      .replace('{points}', areaPoints.length)
+                      .replace('{ha}', areaHectares.toFixed(2))
+                  )
+                }
                 className="w-full mt-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>🛰️</span> Analisis Biomassa di GEE
+                <span>🛰️</span> {t('analyzeBiomassGEE')}
               </button>
             </div>
           )}

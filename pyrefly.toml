@@ -1,0 +1,12 @@
+preset = "basic"
+project-includes = [
+    "backend-fastapi/**/*.py",
+]
+search-path = [
+    "backend-fastapi",
+    "backend-fastapi/app",
+]
+python-interpreter-path = "C:\\Users\\USER\\AppData\\Local\\Python\\bin\\python.exe"
+ignore-missing-imports = [
+    "ee",
+]
