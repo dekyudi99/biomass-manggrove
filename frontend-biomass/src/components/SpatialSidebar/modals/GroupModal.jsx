@@ -32,7 +32,7 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
     mutationFn: (data) => layerGroupApi.create(data),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('createGroup') + ' OK!')
-      queryClient.invalidateQueries(['layerGroups'])
+      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
       onClose()
     },
     onError: (err) => {
@@ -44,7 +44,7 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
     mutationFn: ({ id, data }) => layerGroupApi.update({ id, data }),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('editGroup') + ' OK!')
-      queryClient.invalidateQueries(['layerGroups'])
+      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
       onClose()
     },
     onError: (err) => {

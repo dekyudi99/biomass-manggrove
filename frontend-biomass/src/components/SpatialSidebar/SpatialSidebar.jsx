@@ -5,6 +5,7 @@ import {
   FolderOutlined,
   UploadOutlined,
   SettingOutlined,
+  CloseOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import workspaceApi from '../../api/WorkspaceApi'
@@ -29,10 +30,23 @@ const SpatialSidebar = ({
   onChangeGroupOpacity,
   onZoomToGroup,
   onStyleApplied,
+  isOpen: propIsOpen,
+  onToggle: propOnToggle,
 }) => {
   const { t } = useLanguage()
 
-  const [isOpen, setIsOpen] = useState(true)
+  const [localIsOpen, setLocalIsOpen] = useState(false)
+  const isControlled = typeof propIsOpen === 'boolean'
+  const isOpen = isControlled ? propIsOpen : localIsOpen
+
+  const toggleOpen = () => {
+    if (isControlled && propOnToggle) {
+      propOnToggle(!isOpen)
+    } else {
+      setLocalIsOpen((prev) => !prev)
+    }
+  }
+
   const [activeTab, setActiveTab] = useState('layers')
 
   // Modals state
@@ -86,7 +100,7 @@ const SpatialSidebar = ({
           </button>
 
           <button
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={toggleOpen}
             className="bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1.5 sm:gap-2 font-medium text-xs sm:text-sm cursor-pointer"
           >
             <AppstoreOutlined className="text-emerald-600 text-sm sm:text-base" />
@@ -99,23 +113,33 @@ const SpatialSidebar = ({
 
         {/* Panel Card Utama */}
         {isOpen && (
-          <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm max-h-[calc(100dvh-5.5rem)] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/80 flex flex-col overflow-hidden text-gray-800 transition-all">
+          <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm max-h-[calc(100dvh-5.5rem)] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/80 flex flex-col overflow-hidden text-gray-800 transition-all overscroll-contain">
             {/* Header Tabs Navigation */}
-            <div className="flex border-b border-gray-100 bg-gray-50/70 p-1.5 gap-1">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-1.5 px-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-white text-emerald-700 shadow-xs border border-gray-200/80'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100/60'
-                  }`}
-                >
-                  {tab.icon}
-                  <span className="truncate">{tab.label}</span>
-                </button>
-              ))}
+            <div className="flex items-center border-b border-gray-100 bg-gray-50/70 p-1.5 gap-1">
+              <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 min-w-[56px] py-1.5 px-1.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer ${
+                      activeTab === tab.id
+                        ? 'bg-white text-emerald-700 shadow-xs border border-gray-200/80'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100/60'
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="truncate">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={toggleOpen}
+                className="lg:hidden p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 rounded-lg transition cursor-pointer shrink-0"
+                title="Close"
+                aria-label="Close"
+              >
+                <CloseOutlined className="text-xs" />
+              </button>
             </div>
 
             {/* Tab Contents */}

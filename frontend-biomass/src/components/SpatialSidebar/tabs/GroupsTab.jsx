@@ -40,7 +40,7 @@ const GroupsTab = ({
     mutationFn: (id) => layerGroupApi.delete(id),
     onSuccess: (res, deletedId) => {
       message.success(res.data?.detail || t('deleteGroup') + ' OK!')
-      queryClient.invalidateQueries(['layerGroups'])
+      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
       const active = visibleGroups.find((g) => g.id === deletedId)
       if (active && onToggleGroup) {
         onToggleGroup(active, false)

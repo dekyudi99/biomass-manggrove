@@ -95,7 +95,7 @@ const DownloadLayerModal = ({ open, layer, onClose }) => {
       onCancel={onClose}
       footer={null}
       destroyOnClose
-      width={480}
+      width="min(480px, 95vw)"
     >
       <div className="space-y-4 py-2">
         {/* Layer Info Header */}
@@ -123,7 +123,7 @@ const DownloadLayerModal = ({ open, layer, onClose }) => {
           <label className="block text-xs font-semibold text-gray-700 mb-2">
             {t('downloadFormat')}
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* GeoTIFF Option */}
             <div
               onClick={() => setFormat('tiff')}

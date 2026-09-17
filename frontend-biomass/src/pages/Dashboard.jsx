@@ -19,6 +19,7 @@ import { BASE_LAYERS } from '../constants/layers'
 import Sidebar from '../components/Sidebar'
 import SpatialSidebar from '../components/SpatialSidebar/SpatialSidebar'
 import MapFlyController from '../components/MapFlyController'
+import FloatingMapControls from '../components/FloatingMapControls'
 import { useLanguage } from '../context/LanguageContext'
 
 // Fix icon marker bawaan Leaflet di React/Vite
@@ -88,6 +89,29 @@ const Dashboard = () => {
   const [visibleLayers, setVisibleLayers] = useState([])
   const [visibleGroups, setVisibleGroups] = useState([])
   const [flyTarget, setFlyTarget] = useState(null)
+
+  // State responsif sidebar: di desktop default kiri terbuka, di mobile (<1024px) saling eksklusif
+  const [isLeftOpen, setIsLeftOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024
+    }
+    return true
+  })
+  const [isRightOpen, setIsRightOpen] = useState(false)
+
+  const handleToggleLeft = (open) => {
+    setIsLeftOpen(open)
+    if (open && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsRightOpen(false)
+    }
+  }
+
+  const handleToggleRight = (open) => {
+    setIsRightOpen(open)
+    if (open && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsLeftOpen(false)
+    }
+  }
 
   const handleZoomToLayer = (target) => {
     if (target?.bbox) {
@@ -222,6 +246,18 @@ const Dashboard = () => {
 
   return (
     <div className="relative h-[100dvh] w-screen overflow-hidden">
+      {/* Backdrop gelap di mobile (<1024px) jika salah satu sidebar dibuka */}
+      {(isLeftOpen || isRightOpen) && (
+        <div
+          onClick={() => {
+            setIsLeftOpen(false)
+            setIsRightOpen(false)
+          }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[990] lg:hidden transition-opacity cursor-pointer"
+          aria-label="Close menus"
+        />
+      )}
+
       {/* Sidebar Tool di Kiri Atas */}
       <Sidebar
         mode={mode}
@@ -236,6 +272,8 @@ const Dashboard = () => {
         isAddressLoading={isAddressLoading}
         pointAddress={pointAddress}
         onCloseArea={handleCloseArea}
+        isOpen={isLeftOpen}
+        onToggle={handleToggleLeft}
       />
 
       {/* Sidebar Spasial AstraGIS di Kanan Atas */}
@@ -249,6 +287,8 @@ const Dashboard = () => {
         onChangeGroupOpacity={handleChangeGroupOpacity}
         onZoomToGroup={handleZoomToGroup}
         onStyleApplied={handleStyleApplied}
+        isOpen={isRightOpen}
+        onToggle={handleToggleRight}
       />
 
       {/* Peta Utama */}
@@ -261,6 +301,7 @@ const Dashboard = () => {
       >
         <MapEvents mode={mode} isAreaClosed={isAreaClosed} onMapClick={handleMapClick} />
         <MapFlyController flyTarget={flyTarget} />
+        <FloatingMapControls defaultCenter={defaultCenter} />
 
         {/* TileLayer dasar */}
         <TileLayer

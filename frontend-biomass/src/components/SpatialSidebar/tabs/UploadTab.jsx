@@ -69,7 +69,7 @@ const UploadTab = ({ workspaces = [], onUploadSuccess }) => {
       })
 
       message.success(res.data?.detail || t('layerPublishedSuccess'))
-      queryClient.invalidateQueries(['layers'])
+      queryClient.invalidateQueries({ queryKey: ['layers'] })
 
       setFile(null)
       setLayerName('')

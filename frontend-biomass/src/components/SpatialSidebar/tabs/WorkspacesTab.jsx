@@ -33,9 +33,9 @@ const WorkspacesTab = () => {
     mutationFn: (id) => workspaceApi.delete(id),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('deleteWorkspace') + ' OK!')
-      queryClient.invalidateQueries(['workspaces'])
-      queryClient.invalidateQueries(['layers'])
-      queryClient.invalidateQueries(['layerGroups'])
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+      queryClient.invalidateQueries({ queryKey: ['layers'] })
+      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
     },
     onError: (err) => {
       message.error(err.response?.data?.detail || 'Gagal menghapus workspace')

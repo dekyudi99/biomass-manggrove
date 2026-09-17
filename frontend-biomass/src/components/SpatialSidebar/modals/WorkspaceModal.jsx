@@ -19,7 +19,7 @@ const WorkspaceModal = ({ open, onClose, workspace }) => {
     mutationFn: (data) => workspaceApi.create(data),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('addWorkspace') + ' OK!')
-      queryClient.invalidateQueries(['workspaces'])
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       onClose()
     },
     onError: (err) => {
@@ -31,7 +31,7 @@ const WorkspaceModal = ({ open, onClose, workspace }) => {
     mutationFn: ({ id, data }) => workspaceApi.update({ id, data }),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('editWorkspace') + ' OK!')
-      queryClient.invalidateQueries(['workspaces'])
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       onClose()
     },
     onError: (err) => {

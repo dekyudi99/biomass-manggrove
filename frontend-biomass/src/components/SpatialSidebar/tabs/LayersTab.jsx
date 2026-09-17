@@ -38,7 +38,7 @@ const LayersTab = ({
     mutationFn: (id) => layerApi.delete(id),
     onSuccess: (res, deletedId) => {
       message.success(res.data?.detail || t('deleteLayer') + ' OK!')
-      queryClient.invalidateQueries(['layers'])
+      queryClient.invalidateQueries({ queryKey: ['layers'] })
       // Matikan dari peta jika sedang tampil
       const active = visibleLayers.find((l) => l.id === deletedId)
       if (active && onToggleLayer) {

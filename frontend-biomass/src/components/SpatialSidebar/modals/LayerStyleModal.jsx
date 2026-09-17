@@ -73,7 +73,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
     mutationFn: ({ layerId, data }) => layerApi.updateStyle({ layerId, data }),
     onSuccess: (res) => {
       message.success(res.data?.detail || 'Style berhasil diterapkan!')
-      queryClient.invalidateQueries(['layers'])
+      queryClient.invalidateQueries({ queryKey: ['layers'] })
       if (onStyleApplied && layer) {
         onStyleApplied(layer.id)
       }
@@ -177,7 +177,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
         </div>
 
         {/* Tipe SLD Method */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 gap-2.5">
           <div>
             <span className="text-xs font-semibold text-gray-700 block">{t('colorMethod')}</span>
             <span className="text-[11px] text-gray-500">
@@ -189,7 +189,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
           <Select
             value={styleType}
             onChange={setStyleType}
-            className="w-40"
+            className="w-full sm:w-40"
             options={[
               { value: 'ramp', label: t('rampMethod') },
               { value: 'values', label: t('discreteMethod') },
@@ -219,7 +219,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
             {classes.map((cls, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 transition text-xs"
+                className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 transition text-xs"
               >
                 {/* Color Picker */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
