@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import L from 'leaflet'
 import { BASE_LAYERS } from '../constants/layers'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -29,7 +30,15 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
 
   const activeLayerName = getLayerDisplayName(mainThumbLayer.id)
 
-  // Tutup popup jika user klik di luar area kontrol (terutama di mobile)
+  // Nonaktifkan propagasi event klik/scroll ke Leaflet map di baliknya
+  useEffect(() => {
+    if (containerRef.current) {
+      L.DomEvent.disableClickPropagation(containerRef.current)
+      L.DomEvent.disableScrollPropagation(containerRef.current)
+    }
+  }, [])
+
+  // Tutup popup jika user klik di luar area kontrol (termasuk tap di mobile)
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -37,10 +46,31 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
       }
     }
     document.addEventListener('pointerdown', handleClickOutside)
-    return () => document.removeEventListener('pointerdown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
+  // Hanya jalankan hover pada desktop mouse (bukan touch device / mobile)
+  const handlePointerEnter = (e) => {
+    if (e.pointerType === 'touch') return
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+      setIsOpen(true)
+    }
+  }
+
+  const handlePointerLeave = (e) => {
+    if (e.pointerType === 'touch') return
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+      setIsOpen(false)
+    }
+  }
+
+  // Klik thumbnail selalu membuka/menutup menu (wajib untuk mobile touchscreen)
   const handleThumbnailClick = (e) => {
+    e.preventDefault()
     e.stopPropagation()
     setIsOpen((prev) => !prev)
   }
@@ -53,14 +83,17 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 z-[950] flex items-end gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)]"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
+      className="absolute bottom-8 left-3 sm:bottom-6 sm:left-6 z-[950] flex items-end gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)]"
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
     >
       {/* Tombol Utama (Thumbnail Kotak persis Google Maps) */}
       <button
+        type="button"
         onClick={handleThumbnailClick}
-        className="relative group w-13 h-13 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-white shadow-xl cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95 focus:outline-none flex-shrink-0"
+        className={`relative group w-13 h-13 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 shadow-xl cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none flex-shrink-0 ${
+          isOpen ? 'border-emerald-500 ring-2 ring-emerald-500/40 shadow-emerald-500/20' : 'border-white'
+        }`}
         title={`${t('switchBaseLayer')} ${activeLayerName}`}
         aria-label={t('switchBaseLayer')}
       >
@@ -75,7 +108,7 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
         </span>
       </button>
 
-      {/* Menu Pop-up Pilihan Layer yang Muncul Saat di-Hover atau di-Klik (Responsif Mobile) */}
+      {/* Menu Pop-up Pilihan Layer yang Muncul Saat di-Klik atau di-Hover */}
       <div
         className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/80 transition-all duration-300 origin-left overflow-x-auto max-w-[calc(100vw-5.5rem)] sm:max-w-none ${
           isOpen
@@ -89,7 +122,11 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
           return (
             <button
               key={layer.id}
-              onClick={() => handleSelect(layer.id)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleSelect(layer.id)
+              }}
               className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none flex-shrink-0 p-0.5"
             >
               <div

@@ -35,7 +35,7 @@ const FloatingMapControls = ({ defaultCenter = [13.652913414797453, 100.49455240
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 z-[950] flex flex-col gap-1.5 sm:gap-2"
+      className="absolute bottom-8 right-3 sm:bottom-6 sm:right-6 z-[950] flex flex-col gap-1.5 sm:gap-2"
     >
       <div className="flex flex-col rounded-2xl bg-white/95 backdrop-blur-md shadow-xl border border-gray-200/80 overflow-hidden">
         {/* Zoom In */}

@@ -36,7 +36,7 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
       onClose()
     },
     onError: (err) => {
-      message.error(err.response?.data?.detail || 'Gagal membuat layer group')
+      message.error(err.response?.data?.detail || t('failedCreateGroup'))
     },
   })
 
@@ -48,7 +48,7 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
       onClose()
     },
     onError: (err) => {
-      message.error(err.response?.data?.detail || 'Gagal memperbarui layer group')
+      message.error(err.response?.data?.detail || t('failedUpdateGroup'))
     },
   })
 
@@ -65,7 +65,7 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
   const handleSubmit = () => {
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
-      message.warning(t('groupTitle') + ' wajib diisi.')
+      message.warning(`${t('groupTitle')} ${t('fieldRequired')}`)
       return
     }
     if (selectedLayerIds.length === 0) {

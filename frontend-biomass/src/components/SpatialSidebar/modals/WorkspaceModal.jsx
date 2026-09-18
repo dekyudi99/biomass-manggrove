@@ -23,7 +23,7 @@ const WorkspaceModal = ({ open, onClose, workspace }) => {
       onClose()
     },
     onError: (err) => {
-      message.error(err.response?.data?.detail || 'Gagal membuat workspace')
+      message.error(err.response?.data?.detail || t('failedCreateWorkspace'))
     },
   })
 
@@ -35,14 +35,14 @@ const WorkspaceModal = ({ open, onClose, workspace }) => {
       onClose()
     },
     onError: (err) => {
-      message.error(err.response?.data?.detail || 'Gagal memperbarui workspace')
+      message.error(err.response?.data?.detail || t('failedUpdateWorkspace'))
     },
   })
 
   const handleSubmit = () => {
     const trimmed = name.trim()
     if (!trimmed) {
-      message.warning(t('workspaceName') + ' tidak boleh kosong.')
+      message.warning(`${t('workspaceName')} ${t('fieldRequired')}`)
       return
     }
 

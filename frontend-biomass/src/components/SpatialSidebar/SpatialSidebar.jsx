@@ -32,6 +32,7 @@ const SpatialSidebar = ({
   onStyleApplied,
   isOpen: propIsOpen,
   onToggle: propOnToggle,
+  otherSidebarOpen = false,
 }) => {
   const { t } = useLanguage()
 
@@ -89,8 +90,8 @@ const SpatialSidebar = ({
   return (
     <>
       <aside className="absolute top-3 right-3 sm:top-4 sm:right-4 z-[1000] flex flex-col items-end gap-2 pointer-events-none max-w-[calc(100vw-1.5rem)]">
-        {/* Tombol Header */}
-        <div className="pointer-events-auto flex items-center gap-2">
+        {/* Tombol Header (sembunyi di mobile jika sidebar kiri terbuka) */}
+        <div className={`pointer-events-auto flex items-center gap-1.5 sm:gap-2 ${otherSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="bg-white/95 backdrop-blur-md p-2 sm:p-2.5 rounded-xl shadow-lg border border-gray-200/80 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
@@ -101,10 +102,12 @@ const SpatialSidebar = ({
 
           <button
             onClick={toggleOpen}
-            className="bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1.5 sm:gap-2 font-medium text-xs sm:text-sm cursor-pointer"
+            className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1.5 sm:gap-2 font-medium text-xs sm:text-sm cursor-pointer"
+            title={t('spatialTitle')}
           >
             <AppstoreOutlined className="text-emerald-600 text-sm sm:text-base" />
-            <span className="truncate max-w-[120px] sm:max-w-none">{t('spatialTitle')}</span>
+            <span className="hidden sm:inline truncate max-w-[120px] sm:max-w-none">{t('spatialTitle')}</span>
+            <span className="inline sm:hidden text-xs font-semibold text-gray-700">GIS</span>
             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
               {layers.length}
             </span>

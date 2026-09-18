@@ -66,7 +66,7 @@ const LayersTab = ({
           allowClear
           className="text-xs rounded-lg"
         />
-        <Tooltip title="Refresh">
+        <Tooltip title={t('refresh')}>
           <Button
             size="small"
             icon={<ReloadOutlined spin={isLoading} />}

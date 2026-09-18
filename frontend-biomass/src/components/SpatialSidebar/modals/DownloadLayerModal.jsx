@@ -143,7 +143,7 @@ const DownloadLayerModal = ({ open, layer, onClose }) => {
                 )}
               </div>
               <p className="text-[11px] text-gray-500 leading-tight">
-                Raster georeferensi standar untuk SIG (QGIS, ArcGIS).
+                {t('tiffFormatDesc')}
               </p>
             </div>
 
@@ -166,7 +166,7 @@ const DownloadLayerModal = ({ open, layer, onClose }) => {
                 )}
               </div>
               <p className="text-[11px] text-gray-500 leading-tight">
-                Citra visual transparan untuk laporan dan web.
+                {t('pngFormatDesc')}
               </p>
             </div>
           </div>

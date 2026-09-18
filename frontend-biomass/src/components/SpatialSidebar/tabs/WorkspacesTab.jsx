@@ -63,7 +63,7 @@ const WorkspacesTab = () => {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Tooltip title="Refresh">
+          <Tooltip title={t('refresh')}>
             <Button
               size="small"
               icon={<ReloadOutlined spin={isLoading} />}

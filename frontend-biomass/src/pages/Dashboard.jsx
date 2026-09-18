@@ -245,7 +245,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="relative h-[100dvh] w-screen overflow-hidden">
+    <div className="relative h-[100dvh] w-full overflow-hidden">
       {/* Backdrop gelap di mobile (<1024px) jika salah satu sidebar dibuka */}
       {(isLeftOpen || isRightOpen) && (
         <div
@@ -274,6 +274,7 @@ const Dashboard = () => {
         onCloseArea={handleCloseArea}
         isOpen={isLeftOpen}
         onToggle={handleToggleLeft}
+        otherSidebarOpen={isRightOpen}
       />
 
       {/* Sidebar Spasial AstraGIS di Kanan Atas */}
@@ -289,6 +290,7 @@ const Dashboard = () => {
         onStyleApplied={handleStyleApplied}
         isOpen={isRightOpen}
         onToggle={handleToggleRight}
+        otherSidebarOpen={isLeftOpen}
       />
 
       {/* Peta Utama */}

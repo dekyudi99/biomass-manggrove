@@ -173,6 +173,64 @@ export const translations = {
     areaSize: 'Luas:',
     clickHereToCloseArea: '🎯 Klik di sini untuk menutup area',
     failedAddress: 'Gagal memuat alamat',
+
+    // General
+    refresh: 'Segarkan',
+    fieldRequired: 'wajib diisi.',
+
+    // Settings Modal
+    backendStatusTitle: 'Status Backend AstraGIS (S2S):',
+    checkStatus: 'Cek Status',
+    backendConnected: 'Terhubung ke AstraGIS via Backend S2S',
+    backendNotConnected: 'Backend Belum Terhubung',
+    checkingConnection: 'Sedang memeriksa koneksi...',
+    s2sEndpoint: 'S2S Endpoint:',
+    s2sSecurityNote: '* Kredensial API Key dan URL S2S diatur secara aman di dalam .env backend, tidak disimpan di browser/frontend.',
+    backendNoResponse: 'AstraGIS backend tidak merespons',
+    failedContactBackend: 'Gagal menghubungi backend',
+
+    // Download Modal
+    tiffFormatDesc: 'Raster georeferensi standar untuk SIG (QGIS, ArcGIS).',
+    pngFormatDesc: 'Citra visual transparan untuk laporan dan web.',
+
+    // Style Modal
+    rampDesc: 'Gradien halus kontinyu antar nilai piksel',
+    valuesDesc: 'Kategori diskrit / nilai pasti',
+    intervalsDesc: 'Interval berjenjang (kurang dari atau sama dengan)',
+    chooseColor: 'Pilih Warna',
+    labelPlaceholder: 'Label keterangan...',
+    opacityShort: 'Opasitas',
+
+    // Preset color labels
+    waterBody: 'Badan Air',
+    bareLand: 'Tanah Terbuka',
+    lowVegetation: 'Vegetasi Rendah',
+    mediumMangrove: 'Mangrove Sedang',
+    denseMangrove: 'Mangrove Lebat',
+    seaLevel: 'Laut (0m)',
+    coastal: 'Pesisir (10m)',
+    plains: 'Dataran (50m)',
+    hills: 'Perbukitan (150m)',
+    highland: 'Tinggi (500m)',
+    veryLow: 'Sangat Rendah',
+    low: 'Rendah',
+    medium: 'Sedang',
+    high: 'Tinggi',
+    veryHigh: 'Sangat Tinggi',
+    minVal: 'Min',
+    midVal: 'Tengah',
+    maxVal: 'Maks',
+
+    // Floating Map Controls
+    zoomIn: 'Perbesar',
+    zoomOut: 'Perkecil',
+    recenterMap: 'Pusatkan Peta',
+
+    // Modal errors
+    failedCreateWorkspace: 'Gagal membuat workspace',
+    failedUpdateWorkspace: 'Gagal memperbarui workspace',
+    failedCreateGroup: 'Gagal membuat layer group',
+    failedUpdateGroup: 'Gagal memperbarui layer group',
   },
 
   en: {
@@ -349,6 +407,64 @@ export const translations = {
     areaSize: 'Area:',
     clickHereToCloseArea: '🎯 Click here to close area',
     failedAddress: 'Failed to load address',
+
+    // General
+    refresh: 'Refresh',
+    fieldRequired: 'is required.',
+
+    // Settings Modal
+    backendStatusTitle: 'AstraGIS Backend Status (S2S):',
+    checkStatus: 'Check Status',
+    backendConnected: 'Connected to AstraGIS via Backend S2S',
+    backendNotConnected: 'Backend Not Connected',
+    checkingConnection: 'Checking connection...',
+    s2sEndpoint: 'S2S Endpoint:',
+    s2sSecurityNote: '* API Key and S2S URL credentials are securely configured inside backend .env, not stored in browser/frontend.',
+    backendNoResponse: 'AstraGIS backend not responding',
+    failedContactBackend: 'Failed to contact backend',
+
+    // Download Modal
+    tiffFormatDesc: 'Standard georeferenced raster for GIS (QGIS, ArcGIS).',
+    pngFormatDesc: 'Transparent visual image for reports and web.',
+
+    // Style Modal
+    rampDesc: 'Smooth continuous gradient between pixel values',
+    valuesDesc: 'Discrete categories / exact values',
+    intervalsDesc: 'Stepped intervals (less than or equal to)',
+    chooseColor: 'Choose Color',
+    labelPlaceholder: 'Description label...',
+    opacityShort: 'Opacity',
+
+    // Preset color labels
+    waterBody: 'Water Body',
+    bareLand: 'Bare Land',
+    lowVegetation: 'Low Vegetation',
+    mediumMangrove: 'Medium Mangrove',
+    denseMangrove: 'Dense Mangrove',
+    seaLevel: 'Sea (0m)',
+    coastal: 'Coastal (10m)',
+    plains: 'Plains (50m)',
+    hills: 'Hills (150m)',
+    highland: 'Highland (500m)',
+    veryLow: 'Very Low',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    veryHigh: 'Very High',
+    minVal: 'Min',
+    midVal: 'Mid',
+    maxVal: 'Max',
+
+    // Floating Map Controls
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    recenterMap: 'Recenter Map',
+
+    // Modal errors
+    failedCreateWorkspace: 'Failed to create workspace',
+    failedUpdateWorkspace: 'Failed to update workspace',
+    failedCreateGroup: 'Failed to create layer group',
+    failedUpdateGroup: 'Failed to update layer group',
   },
 
   th: {
@@ -525,5 +641,63 @@ export const translations = {
     areaSize: 'ขนาดพื้นที่:',
     clickHereToCloseArea: '🎯 คลิกที่นี่เพื่อปิดพื้นที่',
     failedAddress: 'ไม่สามารถโหลดที่อยู่ได้',
+
+    // General
+    refresh: 'รีเฟรช',
+    fieldRequired: 'จำเป็นต้องระบุ',
+
+    // Settings Modal
+    backendStatusTitle: 'สถานะ Backend AstraGIS (S2S):',
+    checkStatus: 'ตรวจสอบสถานะ',
+    backendConnected: 'เชื่อมต่อกับ AstraGIS ผ่าน Backend S2S แล้ว',
+    backendNotConnected: 'Backend ยังไม่ได้เชื่อมต่อ',
+    checkingConnection: 'กำลังตรวจสอบการเชื่อมต่อ...',
+    s2sEndpoint: 'S2S Endpoint:',
+    s2sSecurityNote: '* คีย์ API และ URL ของ S2S ได้รับการกำหนดค่าอย่างปลอดภัยใน .env ของแบ็กเอนด์ ไม่ได้จัดเก็บไว้ในเบราว์เซอร์/ส่วนหน้า',
+    backendNoResponse: 'AstraGIS backend ไม่ตอบสนอง',
+    failedContactBackend: 'ไม่สามารถติดต่อแบ็กเอนด์ได้',
+
+    // Download Modal
+    tiffFormatDesc: 'ราสเตอร์อ้างอิงพิกัดมาตรฐานสำหรับ GIS (QGIS, ArcGIS)',
+    pngFormatDesc: 'ภาพโปร่งใสสำหรับรายงานและหน้าเว็บ',
+
+    // Style Modal
+    rampDesc: 'การไล่ระดับสีอย่างต่อเนื่องระหว่างค่าพิกเซล',
+    valuesDesc: 'หมวดหมู่ไม่ต่อเนื่อง / ค่าที่แน่นอน',
+    intervalsDesc: 'ช่วงระดับขั้นบันได (น้อยกว่าหรือเท่ากับ)',
+    chooseColor: 'เลือกสี',
+    labelPlaceholder: 'ป้ายคำอธิบาย...',
+    opacityShort: 'ความทึบแสง',
+
+    // Preset color labels
+    waterBody: 'แหล่งน้ำ',
+    bareLand: 'พื้นที่เปิดโล่ง',
+    lowVegetation: 'พืชพรรณต่ำ',
+    mediumMangrove: 'ป่าชายเลนปานกลาง',
+    denseMangrove: 'ป่าชายเลนหนาแน่น',
+    seaLevel: 'ทะเล (0ม.)',
+    coastal: 'ชายฝั่ง (10ม.)',
+    plains: 'ที่ราบ (50ม.)',
+    hills: 'เนินเขา (150ม.)',
+    highland: 'ที่ราบสูง (500ม.)',
+    veryLow: 'ต่ำมาก',
+    low: 'ต่ำ',
+    medium: 'ปานกลาง',
+    high: 'สูง',
+    veryHigh: 'สูงมาก',
+    minVal: 'ต่ำสุด',
+    midVal: 'ปานกลาง',
+    maxVal: 'สูงสุด',
+
+    // Floating Map Controls
+    zoomIn: 'ซูมเข้า',
+    zoomOut: 'ซูมออก',
+    recenterMap: 'ปรับกึ่งกลางแผนที่',
+
+    // Modal errors
+    failedCreateWorkspace: 'ไม่สามารถสร้างพื้นที่ทำงานได้',
+    failedUpdateWorkspace: 'ไม่สามารถอัปเดตพื้นที่ทำงานได้',
+    failedCreateGroup: 'ไม่สามารถสร้างกลุ่มเลเยอร์ได้',
+    failedUpdateGroup: 'ไม่สามารถอัปเดตกลุ่มเลเยอร์ได้',
   },
 }

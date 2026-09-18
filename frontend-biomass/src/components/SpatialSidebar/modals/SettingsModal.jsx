@@ -19,13 +19,13 @@ const SettingsModal = ({ open, onClose }) => {
       } else {
         setBackendStatus({
           success: false,
-          error: res.data?.error || 'AstraGIS backend tidak merespons',
+          error: res.data?.error || t('backendNoResponse'),
         })
       }
     } catch (err) {
       setBackendStatus({
         success: false,
-        error: err.response?.data?.detail || err.message || 'Gagal menghubungi backend',
+        error: err.response?.data?.detail || err.message || t('failedContactBackend'),
       })
     } finally {
       setIsChecking(false)
@@ -72,7 +72,7 @@ const SettingsModal = ({ open, onClose }) => {
         <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-gray-700">
-              🛰️ Status Backend AstraGIS (S2S):
+              🛰️ {t('backendStatusTitle')}
             </span>
             <Button
               size="small"
@@ -80,7 +80,7 @@ const SettingsModal = ({ open, onClose }) => {
               onClick={checkConnection}
               className="text-xs text-gray-500 hover:text-emerald-700"
             >
-              Cek Status
+              {t('checkStatus')}
             </Button>
           </div>
 
@@ -99,19 +99,19 @@ const SettingsModal = ({ open, onClose }) => {
             <div className="min-w-0 flex-1">
               <p className="font-semibold truncate">
                 {backendStatus?.success
-                  ? 'Terhubung ke AstraGIS via Backend S2S'
-                  : 'Backend Belum Terhubung'}
+                  ? t('backendConnected')
+                  : t('backendNotConnected')}
               </p>
               <p className="text-[10px] text-gray-500 font-mono truncate">
                 {backendStatus?.success
-                  ? `S2S Endpoint: ${backendStatus.url}`
-                  : backendStatus?.error || 'Sedang memeriksa koneksi...'}
+                  ? `${t('s2sEndpoint')} ${backendStatus.url}`
+                  : backendStatus?.error || t('checkingConnection')}
               </p>
             </div>
           </div>
 
           <p className="text-[10px] text-gray-400 italic">
-            * Kredensial API Key dan URL S2S diatur secara aman di dalam <code>.env</code> backend, tidak disimpan di browser/frontend.
+            {t('s2sSecurityNote')}
           </p>
         </div>
 

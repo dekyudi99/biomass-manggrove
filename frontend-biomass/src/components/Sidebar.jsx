@@ -16,6 +16,7 @@ const Sidebar = ({
   onCloseArea,
   isOpen: propIsOpen,
   onToggle: propOnToggle,
+  otherSidebarOpen = false,
 }) => {
   const { t } = useLanguage()
   const [localIsOpen, setLocalIsOpen] = useState(true)
@@ -54,17 +55,19 @@ const Sidebar = ({
 
   return (
     <aside className="absolute top-3 left-3 sm:top-4 sm:left-4 z-[1000] flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-1.5rem)]">
-      {/* Tombol Buka/Tutup Sidebar jika diminimize */}
-      <div className="pointer-events-auto flex items-center gap-2">
+      {/* Tombol Buka/Tutup Sidebar jika diminimize (sembunyi di mobile jika sidebar kanan terbuka) */}
+      <div className={`pointer-events-auto flex items-center gap-2 ${otherSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
         <button
           onClick={toggleOpen}
-          className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center gap-2 font-medium text-xs sm:text-sm cursor-pointer active:scale-95"
+          className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center gap-1.5 font-medium text-xs sm:text-sm cursor-pointer active:scale-95"
+          title={isOpen ? t('closePanel') : t('openPanel')}
           aria-label={isOpen ? t('closePanel') : t('openPanel')}
         >
           <svg className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          <span className="truncate">{isOpen ? t('closePanel') : t('openPanel')}</span>
+          <span className="hidden sm:inline truncate max-w-[140px]">{isOpen ? t('closePanel') : t('openPanel')}</span>
+          <span className="inline sm:hidden text-xs font-semibold text-emerald-800">Biomass</span>
         </button>
       </div>
 

@@ -18,11 +18,11 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
       description: t('presetMangroveDesc'),
       method: 'ramp',
       classes: [
-        { quantity: -0.2, color: '#004da8', opacity: 0, label: 'Badan Air' },
-        { quantity: 0.1, color: '#e7d8b1', opacity: 1, label: 'Tanah Terbuka' },
-        { quantity: 0.3, color: '#fcd34d', opacity: 1, label: 'Vegetasi Rendah' },
-        { quantity: 0.6, color: '#34d399', opacity: 1, label: 'Mangrove Sedang' },
-        { quantity: 0.9, color: '#047857', opacity: 1, label: 'Mangrove Lebat' },
+        { quantity: -0.2, color: '#004da8', opacity: 0, label: t('waterBody') },
+        { quantity: 0.1, color: '#e7d8b1', opacity: 1, label: t('bareLand') },
+        { quantity: 0.3, color: '#fcd34d', opacity: 1, label: t('lowVegetation') },
+        { quantity: 0.6, color: '#34d399', opacity: 1, label: t('mediumMangrove') },
+        { quantity: 0.9, color: '#047857', opacity: 1, label: t('denseMangrove') },
       ],
     },
     {
@@ -30,11 +30,11 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
       description: t('presetElevationDesc'),
       method: 'ramp',
       classes: [
-        { quantity: 0, color: '#0284c7', opacity: 1, label: 'Laut (0m)' },
-        { quantity: 10, color: '#22c55e', opacity: 1, label: 'Pesisir (10m)' },
-        { quantity: 50, color: '#eab308', opacity: 1, label: 'Dataran (50m)' },
-        { quantity: 150, color: '#d97706', opacity: 1, label: 'Perbukitan (150m)' },
-        { quantity: 500, color: '#b45309', opacity: 1, label: 'Tinggi (500m)' },
+        { quantity: 0, color: '#0284c7', opacity: 1, label: t('seaLevel') },
+        { quantity: 10, color: '#22c55e', opacity: 1, label: t('coastal') },
+        { quantity: 50, color: '#eab308', opacity: 1, label: t('plains') },
+        { quantity: 150, color: '#d97706', opacity: 1, label: t('hills') },
+        { quantity: 500, color: '#b45309', opacity: 1, label: t('highland') },
       ],
     },
     {
@@ -42,11 +42,11 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
       description: t('presetRiskDesc'),
       method: 'values',
       classes: [
-        { quantity: 1, color: '#10b981', opacity: 1, label: 'Sangat Rendah' },
-        { quantity: 2, color: '#84cc16', opacity: 1, label: 'Rendah' },
-        { quantity: 3, color: '#eab308', opacity: 1, label: 'Sedang' },
-        { quantity: 4, color: '#f97316', opacity: 1, label: 'Tinggi' },
-        { quantity: 5, color: '#ef4444', opacity: 1, label: 'Sangat Tinggi' },
+        { quantity: 1, color: '#10b981', opacity: 1, label: t('veryLow') },
+        { quantity: 2, color: '#84cc16', opacity: 1, label: t('low') },
+        { quantity: 3, color: '#eab308', opacity: 1, label: t('medium') },
+        { quantity: 4, color: '#f97316', opacity: 1, label: t('high') },
+        { quantity: 5, color: '#ef4444', opacity: 1, label: t('veryHigh') },
       ],
     },
     {
@@ -54,9 +54,9 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
       description: t('presetGrayscaleDesc'),
       method: 'ramp',
       classes: [
-        { quantity: 0, color: '#000000', opacity: 1, label: 'Min' },
-        { quantity: 128, color: '#737373', opacity: 1, label: 'Mid' },
-        { quantity: 255, color: '#ffffff', opacity: 1, label: 'Max' },
+        { quantity: 0, color: '#000000', opacity: 1, label: t('minVal') },
+        { quantity: 128, color: '#737373', opacity: 1, label: t('midVal') },
+        { quantity: 255, color: '#ffffff', opacity: 1, label: t('maxVal') },
       ],
     },
   ]
@@ -181,9 +181,9 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
           <div>
             <span className="text-xs font-semibold text-gray-700 block">{t('colorMethod')}</span>
             <span className="text-[11px] text-gray-500">
-              {styleType === 'ramp' && 'Gradien halus kontinyu antar nilai piksel'}
-              {styleType === 'values' && 'Kategori diskrit / nilai pasti'}
-              {styleType === 'intervals' && 'Interval berjenjang (kurang dari atau sama dengan)'}
+              {styleType === 'ramp' && t('rampDesc')}
+              {styleType === 'values' && t('valuesDesc')}
+              {styleType === 'intervals' && t('intervalsDesc')}
             </span>
           </div>
           <Select
@@ -228,7 +228,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
                     value={cls.color}
                     onChange={(e) => updateClass(idx, 'color', e.target.value)}
                     className="w-7 h-7 rounded border border-gray-300 cursor-pointer p-0 bg-transparent"
-                    title="Pilih Warna"
+                    title={t('chooseColor')}
                   />
                   <input
                     type="text"
@@ -255,7 +255,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
                   <input
                     type="text"
                     value={cls.label}
-                    placeholder="Label keterangan..."
+                    placeholder={t('labelPlaceholder')}
                     onChange={(e) => updateClass(idx, 'label', e.target.value)}
                     className="w-full px-2 py-1 text-xs border border-gray-200 rounded text-gray-700"
                   />

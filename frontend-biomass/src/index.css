@@ -2,8 +2,30 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh;
   width: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
+}
+
+/* Custom leaflet attribution styling for clean mobile look */
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(4px) !important;
+  border-radius: 6px 0 0 0 !important;
+  padding: 1px 6px !important;
+  margin: 0 !important;
+}
+
+/* Hide scrollbar on tabs for cleaner mobile view */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
