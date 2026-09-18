@@ -577,8 +577,9 @@ const GeeAnalysisModal = ({
               </div>
             </div>
 
-            {/* KHUSUS ESTIMASI BIOMASSA & KARBON TOTAL */}
-            {analysisResult.statistics.total_biomass_tons !== null && (
+            {/* KHUSUS ESTIMASI BIOMASSA & KARBON TOTAL (Hanya pada kategori Biomass & Carbon) */}
+            {['agb', 'carbon'].includes(analysisResult.analysis_type) &&
+              analysisResult.statistics.total_biomass_tons !== null && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-emerald-200">
                 <div>
                   <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1">

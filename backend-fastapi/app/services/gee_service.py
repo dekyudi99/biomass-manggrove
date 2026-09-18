@@ -297,11 +297,6 @@ class GeeAnalysisService:
             elif band_name == "carbon":
                 total_carbon_tons = round(mean_val * area_ha, 2)
                 total_biomass_tons = round(total_carbon_tons / 0.47, 2)
-            elif band_name in ["ndvi", "evi", "savi"]:
-                # Estimasi representatif biomassa berbasis rata-rata NDVI
-                est_agb = max(0, 115 * 2.71828 ** (1.65 * mean_val) - 60)
-                total_biomass_tons = round(est_agb * area_ha, 2)
-                total_carbon_tons = round(total_biomass_tons * 0.47, 2)
 
             return {
                 "status": "success",
