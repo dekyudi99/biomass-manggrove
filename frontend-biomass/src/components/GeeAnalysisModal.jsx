@@ -39,23 +39,23 @@ const GEE_SECTIONS = [
     indices: [
       {
         id: 'ndvi',
-        name: 'NDVI (Normalized Difference Vegetation Index)',
-        tag: 'Vigor & Klorofil',
-        desc: 'Standar emas untuk memantau kerapatan dan kehijauan tajuk mangrove.',
+        nameKey: 'idxName_ndvi',
+        tagKey: 'idxTag_ndvi',
+        descKey: 'idxDesc_ndvi',
         defaultName: 'Mangrove_NDVI',
       },
       {
         id: 'evi',
-        name: 'EVI (Enhanced Vegetation Index)',
-        tag: 'Anti-Saturasi',
-        desc: 'Sangat baik untuk tutupan kanopi mangrove lebat tanpa efek saturasi.',
+        nameKey: 'idxName_evi',
+        tagKey: 'idxTag_evi',
+        descKey: 'idxDesc_evi',
         defaultName: 'Mangrove_EVI',
       },
       {
         id: 'savi',
-        name: 'SAVI (Soil-Adjusted Vegetation Index)',
-        tag: 'Koreksi Lumpur',
-        desc: 'Mengurangi pantulan substrat tanah lumpur di kawasan pesisir pasang surut.',
+        nameKey: 'idxName_savi',
+        tagKey: 'idxTag_savi',
+        descKey: 'idxDesc_savi',
         defaultName: 'Mangrove_SAVI',
       },
     ],
@@ -68,23 +68,23 @@ const GEE_SECTIONS = [
     indices: [
       {
         id: 'cmri',
-        name: 'CMRI (Combined Mangrove Recognition Index)',
-        tag: 'Isolasi Mangrove',
-        desc: 'Formula kombinasi NDVI - NDWI untuk memisahkan mangrove dari vegetasi darat & air.',
+        nameKey: 'idxName_cmri',
+        tagKey: 'idxTag_cmri',
+        descKey: 'idxDesc_cmri',
         defaultName: 'Mangrove_CMRI',
       },
       {
         id: 'mndwi',
-        name: 'MNDWI (Modified NDWI)',
-        tag: 'Genangan Pasang',
-        desc: 'Kontras mendeteksi air laut pasang surut dan alur sungai estuari.',
+        nameKey: 'idxName_mndwi',
+        tagKey: 'idxTag_mndwi',
+        descKey: 'idxDesc_mndwi',
         defaultName: 'Mangrove_MNDWI',
       },
       {
         id: 'ndwi',
-        name: 'NDWI (Normalized Difference Water Index)',
-        tag: 'Kadar Air Tajuk',
-        desc: 'Mendeteksi batas badan air dan kelembaban kanopi daun mangrove.',
+        nameKey: 'idxName_ndwi',
+        tagKey: 'idxTag_ndwi',
+        descKey: 'idxDesc_ndwi',
         defaultName: 'Mangrove_NDWI',
       },
     ],
@@ -97,23 +97,23 @@ const GEE_SECTIONS = [
     indices: [
       {
         id: 'agb',
-        name: 'Estimasi Biomassa (AGB - Above Ground Biomass)',
-        tag: 'Model Alometrik',
-        desc: 'Estimasi biomassa di atas permukaan dalam satuan Ton/Ha dan total biomassa area.',
+        nameKey: 'idxName_agb',
+        tagKey: 'idxTag_agb',
+        descKey: 'idxDesc_agb',
         defaultName: 'Mangrove_Biomass_AGB',
       },
       {
         id: 'carbon',
-        name: 'Cadangan Karbon (Carbon Stock)',
-        tag: 'Faktor IPCC 0.47',
-        desc: 'Estimasi kandungan simpanan karbon organik (Ton C) pada biomassa mangrove.',
+        nameKey: 'idxName_carbon',
+        tagKey: 'idxTag_carbon',
+        descKey: 'idxDesc_carbon',
         defaultName: 'Mangrove_Carbon_Stock',
       },
       {
         id: 'canopy_density',
-        name: 'Klasifikasi Kerapatan Kanopi',
-        tag: '3 Kelas Kerapatan',
-        desc: 'Zonasi tingkat tutupan tajuk: Lebat (>70%), Sedang (50-70%), Jarang (<50%).',
+        nameKey: 'idxName_canopy_density',
+        tagKey: 'idxTag_canopy_density',
+        descKey: 'idxDesc_canopy_density',
         defaultName: 'Mangrove_Canopy_Density',
       },
     ],
@@ -139,6 +139,7 @@ const GeeAnalysisModal = ({
   // State Pilihan Indeks
   const [selectedSection, setSelectedSection] = useState('vegetation')
   const [selectedIndex, setSelectedIndex] = useState('ndvi')
+  const [expandedIndexDesc, setExpandedIndexDesc] = useState({})
 
   // State Parameter Satelit
   const [activeQuickMonths, setActiveQuickMonths] = useState(6)
@@ -315,23 +316,70 @@ const GeeAnalysisModal = ({
     }
   }
 
+  // Handle Minimize (-) : Menutup modal tanpa menghapus hasil analisis & preview di peta
+  const handleMinimize = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    onClose()
+  }
+
+  // Handle Close & Clear (✕) : Menutup modal dan membersihkan hasil analisis serta preview layer di peta
+  const handleCloseAndClear = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    setAnalysisResult(null)
+    if (onClearGeePreviewLayer) {
+      onClearGeePreviewLayer()
+    }
+    onClose()
+    message.info(t('analysisClearedNotice'))
+  }
+
   return (
     <Modal
       open={isOpen}
-      onCancel={onClose}
+      onCancel={handleMinimize}
       footer={null}
       width={780}
       centered
+      closeIcon={
+        <div
+          className="flex items-center gap-1 -mr-1 -mt-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Tombol Minimize (-) */}
+          <Tooltip title={t('minimizeModal')} placement="bottom">
+            <button
+              type="button"
+              onClick={handleMinimize}
+              className="w-7 h-7 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 flex items-center justify-center font-bold text-base transition cursor-pointer border border-transparent hover:border-gray-200 active:scale-95"
+              aria-label={t('minimizeModal')}
+            >
+              —
+            </button>
+          </Tooltip>
+
+          {/* Tombol Close & Clear (✕) */}
+          <Tooltip title={t('closeAndClearModal')} placement="bottom">
+            <button
+              type="button"
+              onClick={handleCloseAndClear}
+              className="w-7 h-7 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center font-bold text-sm transition cursor-pointer border border-transparent hover:border-red-200 active:scale-95"
+              aria-label={t('closeAndClearModal')}
+            >
+              ✕
+            </button>
+          </Tooltip>
+        </div>
+      }
       title={
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+        <div className="flex items-center gap-2.5 pr-16">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
             🛰️
           </div>
-          <div>
-            <h3 className="text-base font-bold text-gray-800 leading-tight">
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-gray-800 leading-tight truncate">
               {t('geeAnalysisTitle')}
             </h3>
-            <p className="text-xs text-gray-500 font-normal">
+            <p className="text-xs text-gray-500 font-normal truncate">
               {t('geeAnalysisSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} Titik)
             </p>
           </div>
@@ -367,6 +415,14 @@ const GeeAnalysisModal = ({
             <div key={sec.key} className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {sec.indices.map((idx) => {
                 const isSelected = selectedIndex === idx.id
+                const isExpanded = !!expandedIndexDesc[idx.id]
+                const localizedName = t(idx.nameKey)
+                const localizedTag = t(idx.tagKey)
+                const localizedDesc = t(idx.descKey)
+                const shortName = localizedName.includes('(')
+                  ? localizedName.split('(')[0].trim()
+                  : localizedName
+
                 return (
                   <div
                     key={idx.id}
@@ -378,17 +434,36 @@ const GeeAnalysisModal = ({
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="font-bold text-xs text-gray-800 truncate">
-                          {idx.name.split('(')[0].trim()}
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="font-bold text-xs text-gray-800 truncate" title={localizedName}>
+                          {shortName}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                          {idx.tag}
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0">
+                          {localizedTag}
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-500 leading-snug line-clamp-2">
-                        {idx.desc}
+                      <p
+                        className={`text-[11px] text-gray-500 leading-snug transition-all ${
+                          isExpanded ? '' : 'line-clamp-2'
+                        }`}
+                      >
+                        {localizedDesc}
                       </p>
+                      {localizedDesc.length > 50 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setExpandedIndexDesc((prev) => ({
+                              ...prev,
+                              [idx.id]: !prev[idx.id],
+                            }))
+                          }}
+                          className="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer mt-1.5 self-start inline-flex items-center gap-0.5 hover:underline"
+                        >
+                          {isExpanded ? t('showLess') : t('readMore')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )

@@ -279,6 +279,48 @@ export const translations = {
     hideAoiFill: 'Sembunyikan Warna Area (Hanya Garis Batas)',
     showAoiFill: 'Tampilkan Warna Area',
     aoiFillHiddenHint: 'Warna hijau AOI dinonaktifkan agar tidak mengubah hasil visual GEE.',
+    readMore: 'Selengkapnya',
+    showLess: 'Tutup',
+    minimizeModal: 'Minimalkan (Simpan Hasil)',
+    closeAndClearModal: 'Tutup & Hapus Hasil Analisis',
+    analysisClearedNotice: 'Analisis GEE ditutup dan hasil analisis dibersihkan.',
+
+    // Indeks Detail i18n
+    idxName_ndvi: 'NDVI (Normalized Difference Vegetation Index)',
+    idxTag_ndvi: 'Vigor & Klorofil',
+    idxDesc_ndvi: 'Standar emas untuk memantau kerapatan dan kehijauan tajuk mangrove.',
+
+    idxName_evi: 'EVI (Enhanced Vegetation Index)',
+    idxTag_evi: 'Anti-Saturasi',
+    idxDesc_evi: 'Sangat baik untuk tutupan kanopi mangrove lebat tanpa efek saturasi.',
+
+    idxName_savi: 'SAVI (Soil-Adjusted Vegetation Index)',
+    idxTag_savi: 'Koreksi Lumpur',
+    idxDesc_savi: 'Mengurangi pantulan substrat tanah lumpur di kawasan pesisir pasang surut.',
+
+    idxName_cmri: 'CMRI (Combined Mangrove Recognition Index)',
+    idxTag_cmri: 'Isolasi Mangrove',
+    idxDesc_cmri: 'Formula kombinasi NDVI - NDWI untuk memisahkan mangrove dari vegetasi darat & air.',
+
+    idxName_mndwi: 'MNDWI (Modified NDWI)',
+    idxTag_mndwi: 'Genangan Pasang',
+    idxDesc_mndwi: 'Kontras mendeteksi air laut pasang surut dan alur sungai estuari.',
+
+    idxName_ndwi: 'NDWI (Normalized Difference Water Index)',
+    idxTag_ndwi: 'Kadar Air Tajuk',
+    idxDesc_ndwi: 'Mendeteksi batas badan air dan kelembaban kanopi daun mangrove.',
+
+    idxName_agb: 'Estimasi Biomassa (AGB - Above Ground Biomass)',
+    idxTag_agb: 'Model Alometrik',
+    idxDesc_agb: 'Estimasi biomassa di atas permukaan dalam satuan Ton/Ha dan total biomassa area.',
+
+    idxName_carbon: 'Cadangan Karbon (Carbon Stock)',
+    idxTag_carbon: 'Faktor IPCC 0.47',
+    idxDesc_carbon: 'Estimasi kandungan simpanan karbon organik (Ton C) pada biomassa mangrove.',
+
+    idxName_canopy_density: 'Klasifikasi Kerapatan Kanopi',
+    idxTag_canopy_density: '3 Kelas Kerapatan',
+    idxDesc_canopy_density: 'Zonasi tingkat tutupan tajuk: Lebat (>70%), Sedang (50-70%), Jarang (<50%).',
 
     // Modal errors
     failedCreateWorkspace: 'Gagal membuat workspace',
@@ -567,6 +609,48 @@ export const translations = {
     hideAoiFill: 'Hide Area Fill (Outline Only)',
     showAoiFill: 'Show Area Fill',
     aoiFillHiddenHint: 'Green AOI fill is disabled to avoid distorting GEE visual results.',
+    readMore: 'Read more',
+    showLess: 'Show less',
+    minimizeModal: 'Minimize (Keep Results)',
+    closeAndClearModal: 'Close & Clear Analysis',
+    analysisClearedNotice: 'GEE analysis closed and results cleared.',
+
+    // Index Details i18n
+    idxName_ndvi: 'NDVI (Normalized Difference Vegetation Index)',
+    idxTag_ndvi: 'Vigor & Chlorophyll',
+    idxDesc_ndvi: 'Gold standard for monitoring density and greenness of mangrove canopy.',
+
+    idxName_evi: 'EVI (Enhanced Vegetation Index)',
+    idxTag_evi: 'Anti-Saturation',
+    idxDesc_evi: 'Excellent for dense mangrove canopy cover without saturation effects.',
+
+    idxName_savi: 'SAVI (Soil-Adjusted Vegetation Index)',
+    idxTag_savi: 'Mud/Soil Correction',
+    idxDesc_savi: 'Reduces reflectance of mud and soil substrates in tidal coastal areas.',
+
+    idxName_cmri: 'CMRI (Combined Mangrove Recognition Index)',
+    idxTag_cmri: 'Mangrove Isolation',
+    idxDesc_cmri: 'Combined NDVI - NDWI formula to separate mangroves from terrestrial vegetation and water.',
+
+    idxName_mndwi: 'MNDWI (Modified NDWI)',
+    idxTag_mndwi: 'Tidal Inundation',
+    idxDesc_mndwi: 'High-contrast detection of tidal seawater and estuary river channels.',
+
+    idxName_ndwi: 'NDWI (Normalized Difference Water Index)',
+    idxTag_ndwi: 'Canopy Water Content',
+    idxDesc_ndwi: 'Detects water body boundaries and moisture content in mangrove leaves.',
+
+    idxName_agb: 'Biomass Estimation (AGB - Above Ground Biomass)',
+    idxTag_agb: 'Allometric Model',
+    idxDesc_agb: 'Above-ground biomass estimation in Ton/Ha and total area biomass.',
+
+    idxName_carbon: 'Carbon Stock',
+    idxTag_carbon: 'IPCC Factor 0.47',
+    idxDesc_carbon: 'Estimated organic carbon storage (Ton C) in mangrove biomass.',
+
+    idxName_canopy_density: 'Canopy Density Classification',
+    idxTag_canopy_density: '3 Density Classes',
+    idxDesc_canopy_density: 'Zoning of canopy cover: Dense (>70%), Moderate (50-70%), Sparse (<50%).',
 
     // Modal errors
     failedCreateWorkspace: 'Failed to create workspace',
@@ -855,6 +939,48 @@ export const translations = {
     hideAoiFill: 'ซ่อนสีพื้นที่ (เฉพาะเส้นขอบ)',
     showAoiFill: 'แสดงสีพื้นที่',
     aoiFillHiddenHint: 'สีเขียวของ AOI ถูกปิดใช้งานเพื่อไม่ให้รบกวนผลลัพธ์ของ GEE',
+    readMore: 'อ่านเพิ่มเติม',
+    showLess: 'ย่อข้อความ',
+    minimizeModal: 'ย่อหน้าต่าง (เก็บผลลัพธ์)',
+    closeAndClearModal: 'ปิดและล้างผลการวิเคราะห์',
+    analysisClearedNotice: 'ปิดการวิเคราะห์ GEE และล้างผลลัพธ์แล้ว',
+
+    // รายละเอียดดัชนี i18n
+    idxName_ndvi: 'NDVI (ดัชนีพืชพรรณความแตกต่างแบบนอร์แมลไลซ์)',
+    idxTag_ndvi: 'ความสมบูรณ์และคลอโรฟิลล์',
+    idxDesc_ndvi: 'มาตรฐานหลักในการติดตามความหนาแน่นและความเขียวของเรือนยอดป่าชายเลน',
+
+    idxName_evi: 'EVI (ดัชนีพืชพรรณที่เพิ่มประสิทธิภาพ)',
+    idxTag_evi: 'ต้านความอิ่มตัว',
+    idxDesc_evi: 'ยอดเยี่ยมสำหรับเรือนยอดป่าชายเลนที่หนาแน่นโดยไม่มีผลกระทบจากความอิ่มตัว',
+
+    idxName_savi: 'SAVI (ดัชนีพืชพรรณที่ปรับแก้ดิน)',
+    idxTag_savi: 'ปรับแก้ค่าโคลนและดิน',
+    idxDesc_savi: 'ลดการสะท้อนของโคลนและดินในเขตชายฝั่งน้ำขึ้นน้ำลง',
+
+    idxName_cmri: 'CMRI (ดัชนีการจำแนกป่าชายเลนแบบรวม)',
+    idxTag_cmri: 'แยกแยะป่าชายเลน',
+    idxDesc_cmri: 'สูตรรวม NDVI - NDWI เพื่อแยกป่าชายเลนออกจากพืชพรรณบนบกและแหล่งน้ำ',
+
+    idxName_mndwi: 'MNDWI (ดัชนีความแตกต่างของน้ำที่ปรับปรุงแล้ว)',
+    idxTag_mndwi: 'น้ำท่วมขังน้ำขึ้นน้ำลง',
+    idxDesc_mndwi: 'ตรวจจับน้ำทะเลขึ้นน้ำลงและร่องน้ำปากแม่น้ำได้อย่างคมชัด',
+
+    idxName_ndwi: 'NDWI (ดัชนีความแตกต่างของน้ำแบบนอร์แมลไลซ์)',
+    idxTag_ndwi: 'ความชื้นในเรือนยอด',
+    idxDesc_ndwi: 'ตรวจจับขอบเขตแหล่งน้ำและความชื้นในใบไม้ของป่าชายเลน',
+
+    idxName_agb: 'การประเมินชีวมวล (AGB - ชีวมวลเหนือพื้นดิน)',
+    idxTag_agb: 'แบบจำลองอัลโลเมตริก',
+    idxDesc_agb: 'ประเมินชีวมวลเหนือพื้นดินในหน่วยตัน/เฮกตาร์และชีวมวลรวมของพื้นที่',
+
+    idxName_carbon: 'การกักเก็บคาร์บอน (Carbon Stock)',
+    idxTag_carbon: 'ค่าสัมประสิทธิ์ IPCC 0.47',
+    idxDesc_carbon: 'ประมาณการการกักเก็บคาร์บอนอินทรีย์ (ตัน C) ในชีวมวลป่าชายเลน',
+
+    idxName_canopy_density: 'การจำแนกความหนาแน่นของเรือนยอด',
+    idxTag_canopy_density: '3 ระดับความหนาแน่น',
+    idxDesc_canopy_density: 'การแบ่งโซนระดับเรือนยอด: หนาแน่น (>70%), ปานกลาง (50-70%), เบาบาง (<50%)',
 
     // Modal errors
     failedCreateWorkspace: 'ไม่สามารถสร้างพื้นที่ทำงานได้',
