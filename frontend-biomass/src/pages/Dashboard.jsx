@@ -8,6 +8,7 @@ import {
   Polygon,
   Polyline,
   CircleMarker,
+  Circle,
   Tooltip,
   useMap,
   useMapEvents,
@@ -20,6 +21,7 @@ import Sidebar from '../components/Sidebar'
 import SpatialSidebar from '../components/SpatialSidebar/SpatialSidebar'
 import MapFlyController from '../components/MapFlyController'
 import FloatingMapControls from '../components/FloatingMapControls'
+import GeeAnalysisModal from '../components/GeeAnalysisModal'
 import { useLanguage } from '../context/LanguageContext'
 
 // Fix icon marker bawaan Leaflet di React/Vite
@@ -32,6 +34,20 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
   shadowUrl: markerShadow,
+})
+
+// Icon khusus lokasi GPS pengguna saat ini (Google Maps Style pulsating blue dot)
+const userLocationIcon = L.divIcon({
+  className: 'custom-user-location-marker',
+  html: `
+    <div style="position: relative; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background-color: rgba(59, 130, 246, 0.35); animation: user-loc-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+      <div style="position: absolute; width: 22px; height: 22px; border-radius: 50%; background-color: rgba(59, 130, 246, 0.3);"></div>
+      <div style="width: 14px; height: 14px; border-radius: 50%; background-color: #2563eb; border: 2.5px solid #ffffff; box-shadow: 0 0 10px rgba(37, 99, 235, 0.8); position: relative; z-index: 10;"></div>
+    </div>
+  `,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
 })
 
 // Fungsi akurat menghitung luas area poligon di bumi dalam satuan Hektar (Ha)
@@ -69,7 +85,7 @@ function MapEvents({ mode, isAreaClosed, onMapClick }) {
 
 const Dashboard = () => {
   const { t, currentLanguage } = useLanguage()
-  const defaultCenter = [13.652913414797453, 100.49455240687257]
+  const defaultCenter = [-8.7291, 115.2105]
   const [activeLayer, setActiveLayer] = useState('osm')
   const currentLayer = BASE_LAYERS[activeLayer]
 
@@ -81,9 +97,20 @@ const Dashboard = () => {
   const [pointAddress, setPointAddress] = useState('')
   const [isAddressLoading, setIsAddressLoading] = useState(false)
 
+  // State untuk Lokasi GPS Pengguna Saat Ini (Google Maps Style)
+  const [userLocation, setUserLocation] = useState(null)
+
   // State untuk Poligon Area
   const [areaPoints, setAreaPoints] = useState([])
   const [isAreaClosed, setIsAreaClosed] = useState(false)
+
+  // State untuk Modal Analisis GEE & Layer Preview GEE di Peta
+  const [isGeeModalOpen, setIsGeeModalOpen] = useState(false)
+  const [geePreviewLayer, setGeePreviewLayer] = useState(null)
+
+  // State untuk Visibilitas AOI Poligon (agar warna hijau tidak menimpa/mengubah warna GEE)
+  const [isAoiVisible, setIsAoiVisible] = useState(true)
+  const [isAoiFillVisible, setIsAoiFillVisible] = useState(true)
 
   // State untuk Layer & Group WMS AstraGIS yang aktif di peta
   const [visibleLayers, setVisibleLayers] = useState([])
@@ -124,7 +151,7 @@ const Dashboard = () => {
   const handleZoomToGroup = (target) => {
     if (target?.bbox) {
       setFlyTarget({ bbox: target.bbox, epsg: target.epsg, timestamp: Date.now() })
-    } else if (Array.isArray(target) && target.length === 4) {
+    } else if (Array.isArray(target) && target.length === 4) {  
       setFlyTarget({ bbox: target, epsg: 4326, timestamp: Date.now() })
     }
   }
@@ -272,6 +299,11 @@ const Dashboard = () => {
         isAddressLoading={isAddressLoading}
         pointAddress={pointAddress}
         onCloseArea={handleCloseArea}
+        onOpenGeeAnalysis={() => setIsGeeModalOpen(true)}
+        isAoiVisible={isAoiVisible}
+        onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
+        isAoiFillVisible={isAoiFillVisible}
+        onToggleAoiFill={() => setIsAoiFillVisible((prev) => !prev)}
         isOpen={isLeftOpen}
         onToggle={handleToggleLeft}
         otherSidebarOpen={isRightOpen}
@@ -296,14 +328,21 @@ const Dashboard = () => {
       {/* Peta Utama */}
       <MapContainer
         center={defaultCenter}
-        zoom={10}
+        zoom={15}
         zoomControl={false}
         scrollWheelZoom={true}
         className="h-full w-full z-0 cursor-crosshair"
       >
         <MapEvents mode={mode} isAreaClosed={isAreaClosed} onMapClick={handleMapClick} />
         <MapFlyController flyTarget={flyTarget} />
-        <FloatingMapControls defaultCenter={defaultCenter} />
+        <FloatingMapControls
+          defaultCenter={defaultCenter}
+          userLocation={userLocation}
+          onToggleUserLocation={setUserLocation}
+          hasAoi={isAreaClosed && areaPoints.length >= 3}
+          isAoiVisible={isAoiVisible}
+          onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
+        />
 
         {/* TileLayer dasar */}
         <TileLayer
@@ -312,6 +351,16 @@ const Dashboard = () => {
           attribution={currentLayer.attribution}
           maxZoom={currentLayer.maxZoom}
         />
+
+        {/* Render Layer Preview Hasil Komputasi GEE */}
+        {geePreviewLayer && (
+          <TileLayer
+            key={`gee-preview-${geePreviewLayer.tileUrl}`}
+            url={geePreviewLayer.tileUrl}
+            opacity={geePreviewLayer.opacity ?? 0.85}
+            zIndex={150}
+          />
+        )}
 
         {/* Render Layer WMS AstraGIS yang Aktif (dengan cache-busting instant saat style diubah) */}
         {visibleLayers.map((layer) => (
@@ -364,15 +413,54 @@ const Dashboard = () => {
           </Marker>
         )}
 
+        {/* 1b. RENDER LOKASI GPS PENGGUNA SAAT INI (GOOGLE MAPS STYLE TOGGLE) */}
+        {userLocation && (
+          <>
+            {userLocation.accuracy && (
+              <Circle
+                center={[userLocation.lat, userLocation.lng]}
+                radius={userLocation.accuracy}
+                pathOptions={{
+                  color: '#3b82f6',
+                  fillColor: '#60a5fa',
+                  fillOpacity: 0.15,
+                  weight: 1.5,
+                }}
+              />
+            )}
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={userLocationIcon}
+            >
+              <Popup>
+                <div className="text-xs text-gray-800 p-0.5">
+                  <p className="font-bold text-blue-700 text-sm mb-1 flex items-center gap-1.5">
+                    <span>📍</span> {t('yourCurrentLocation')}
+                  </p>
+                  <p className="font-mono text-[11px] text-gray-600 mb-1">
+                    Lat: {userLocation.lat.toFixed(6)}, Lng: {userLocation.lng.toFixed(6)}
+                  </p>
+                  {userLocation.accuracy && (
+                    <p className="text-[10px] text-gray-500 bg-blue-50 px-2 py-0.5 rounded-full inline-block border border-blue-200">
+                      {t('accuracy')}: ±{Math.round(userLocation.accuracy)} m
+                    </p>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          </>
+        )}
+
         {/* 2. RENDER AREA POLIGON (Hanya jika SUDAH DITUTUP oleh user) */}
-        {isAreaClosed && areaPoints.length >= 3 && (
+        {isAreaClosed && areaPoints.length >= 3 && isAoiVisible && (
           <Polygon
             positions={areaPoints}
             pathOptions={{
               color: '#059669',
               fillColor: '#10b981',
-              fillOpacity: 0.35,
+              fillOpacity: isAoiFillVisible ? (geePreviewLayer ? 0.12 : 0.35) : 0,
               weight: 2.5,
+              dashArray: !isAoiFillVisible ? '6, 6' : undefined,
             }}
           >
             <Popup>
@@ -401,8 +489,8 @@ const Dashboard = () => {
           />
         )}
 
-        {/* Render titik-titik sudut yang diklik */}
-        {areaPoints.map((point, index) => {
+        {/* Render titik-titik sudut yang diklik (disembunyikan jika area sudah dikunci dan AOI disembunyikan) */}
+        {(!isAreaClosed || isAoiVisible) && areaPoints.map((point, index) => {
           const isFirstPoint = index === 0
           const canCloseNow = isFirstPoint && areaPoints.length >= 3 && !isAreaClosed
 
@@ -442,6 +530,65 @@ const Dashboard = () => {
       <LayerBaseControl
         activeLayer={activeLayer}
         onSelectLayer={setActiveLayer}
+      />
+
+      {/* Floating Indicator Layer Preview GEE Aktif */}
+      {geePreviewLayer && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[900] bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg border border-emerald-300 flex items-center gap-2.5 text-xs max-w-[95vw] overflow-x-auto no-scrollbar">
+          <span className="flex h-2 w-2 relative shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-bold text-gray-800 whitespace-nowrap">
+            Preview GEE: <span className="text-emerald-700 uppercase">{geePreviewLayer.analysisType}</span>
+          </span>
+
+          {/* Quick Toggle Sembunyikan/Tampilkan AOI agar warna satelit GEE murni */}
+          <button
+            onClick={() => setIsAoiVisible((prev) => !prev)}
+            className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] cursor-pointer transition border whitespace-nowrap flex items-center gap-1.5 ${
+              !isAoiVisible
+                ? 'bg-amber-100 text-amber-900 border-amber-400 ring-1 ring-amber-400/40'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+            }`}
+            title={t('aoiFillHiddenHint')}
+          >
+            <span>{!isAoiVisible ? '🙈' : '👁️'}</span>
+            <span>{!isAoiVisible ? t('showAoi') : t('hideAoi')}</span>
+          </button>
+
+          <button
+            onClick={() => setIsGeeModalOpen(true)}
+            className="text-blue-600 hover:text-blue-800 font-medium underline text-[11px] cursor-pointer whitespace-nowrap"
+          >
+            {t('analysisResults')}
+          </button>
+          <button
+            onClick={() => setGeePreviewLayer(null)}
+            className="text-gray-400 hover:text-red-500 font-bold ml-1 text-sm cursor-pointer shrink-0"
+            title="Tutup preview"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Modal Analisis Komputasi Citra Satelit GEE */}
+      <GeeAnalysisModal
+        isOpen={isGeeModalOpen}
+        onClose={() => setIsGeeModalOpen(false)}
+        areaPoints={areaPoints}
+        areaHectares={areaHectares}
+        onApplyGeePreviewLayer={setGeePreviewLayer}
+        onClearGeePreviewLayer={() => setGeePreviewLayer(null)}
+        activeGeeLayer={geePreviewLayer}
+        isAoiVisible={isAoiVisible}
+        onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
+        isAoiFillVisible={isAoiFillVisible}
+        onToggleAoiFill={setIsAoiFillVisible}
+        onLayerSavedToAstraGis={(result) => {
+          // Trigger refresh layer jika ada
+        }}
       />
     </div>
   )

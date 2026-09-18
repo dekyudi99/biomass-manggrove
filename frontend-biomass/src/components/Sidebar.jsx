@@ -14,6 +14,11 @@ const Sidebar = ({
   isAddressLoading,
   pointAddress,
   onCloseArea,
+  onOpenGeeAnalysis,
+  isAoiVisible = true,
+  onToggleAoi,
+  isAoiFillVisible = true,
+  onToggleAoiFill,
   isOpen: propIsOpen,
   onToggle: propOnToggle,
   otherSidebarOpen = false,
@@ -253,14 +258,34 @@ const Sidebar = ({
                 </button>
               )}
 
-              {/* Jika sudah ditutup, sediakan opsi buka kembali jika mau diedit */}
+              {/* Jika sudah ditutup, sediakan opsi buka kembali jika mau diedit & toggle AOI */}
               {isAreaClosed && (
-                <button
-                  onClick={() => setIsAreaClosed(false)}
-                  className="w-full py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-lg border border-gray-300 transition-all cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <span>✏️</span> {t('reopenOrAddPoints')}
-                </button>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsAreaClosed(false)}
+                      className="flex-1 py-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-lg border border-gray-300 transition-all cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <span>✏️</span> {t('reopenOrAddPoints')}
+                    </button>
+                    {onToggleAoi && (
+                      <button
+                        type="button"
+                        onClick={onToggleAoi}
+                        className={`py-1.5 px-2.5 font-semibold text-xs rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 shrink-0 ${
+                          !isAoiVisible
+                            ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold ring-1 ring-amber-400/30'
+                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                        }`}
+                        title={t('aoiFillHiddenHint')}
+                      >
+                        <span>{!isAoiVisible ? '🙈' : '👁️'}</span>
+                        <span className="text-[11px]">{!isAoiVisible ? t('showAoi') : t('hideAoi')}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Tombol Kontrol Poligon */}
@@ -300,13 +325,11 @@ const Sidebar = ({
               {/* Tombol Aksi Analisis GEE (Hanya aktif jika SUDAH DITUTUP) */}
               <button
                 disabled={!isAreaClosed || areaPoints.length < 3}
-                onClick={() =>
-                  alert(
-                    t('geeReadyAlert')
-                      .replace('{points}', areaPoints.length)
-                      .replace('{ha}', areaHectares.toFixed(2))
-                  )
-                }
+                onClick={() => {
+                  if (onOpenGeeAnalysis) {
+                    onOpenGeeAnalysis()
+                  }
+                }}
                 className="w-full mt-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>🛰️</span> {t('analyzeBiomassGEE')}

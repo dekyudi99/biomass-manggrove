@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import test_endpoint, spatial
+from app.routes import test_endpoint, spatial, gee
 import app.config.gee_initialize
 
 import os
@@ -30,3 +30,4 @@ app.add_middleware(
 
 app.include_router(test_endpoint.router)
 app.include_router(spatial.router, prefix="/api")
+app.include_router(gee.router, prefix="/api")

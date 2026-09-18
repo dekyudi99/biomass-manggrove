@@ -155,6 +155,10 @@ class AstraGISService:
         return await make_request("POST", "/s2s/publish", files=files, data=form_data)
 
     @staticmethod
+    async def publish_from_url(payload: dict):
+        return await make_request("POST", "/s2s/publish-from-url", json=payload)
+
+    @staticmethod
     async def update_layer_style(layer_id: int, payload: dict):
         return await make_request("POST", f"/s2s/layers/{layer_id}/style", json=payload)
 

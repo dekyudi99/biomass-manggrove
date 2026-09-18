@@ -29,3 +29,11 @@ html, body, #root {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Animasi denyut pin lokasi GPS Google Maps */
+@keyframes user-loc-ping {
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
