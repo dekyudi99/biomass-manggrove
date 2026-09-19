@@ -1,7 +1,12 @@
 from fastapi import APIRouter, UploadFile, File, Form, Query, Body, Response, HTTPException
 from typing import Optional, Dict, Any, List
+from datetime import datetime
+from pydantic import BaseModel
+from shapely.geometry import Polygon
 import tempfile
 import os
+import io
+import re
 import zipfile
 import geopandas as gpd
 from app.services.astragis_service import AstraGISService
@@ -288,4 +293,64 @@ async def parse_shapefile(
             "count": len(points),
             "source_crs": source_crs,
         }
+
+
+# --- SHAPEFILE AOI EXPORTER ---
+
+class ExportShapefileRequest(BaseModel):
+    points: List[List[float]]
+    name: Optional[str] = "Mangrove_AOI"
+    area_hectares: Optional[float] = 0.0
+
+
+@router.post("/export-shapefile")
+async def export_shapefile(req: ExportShapefileRequest):
+    """
+    Mengekspor poligon koordinat Leaflet [[lat, lng], ...] menjadi berkas arsip ESRI Shapefile (.zip).
+    Memuat .shp, .shx, .dbf, .prj (EPSG:4326), dan .cpg (UTF-8).
+    """
+    if not req.points or len(req.points) < 3:
+        raise HTTPException(status_code=400, detail="Poligon harus memiliki minimal 3 titik sudut koordinat.")
+
+    clean_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', req.name or "Mangrove_AOI").strip('_') or "Mangrove_AOI"
+
+    # Leaflet [lat, lng] -> GeoJSON/Shapely [lng, lat]
+    ring = [(float(pt[1]), float(pt[0])) for pt in req.points]
+    if ring[0] != ring[-1]:
+        ring.append(ring[0])
+
+    poly = Polygon(ring)
+    gdf = gpd.GeoDataFrame(
+        {
+            "name": [clean_name],
+            "area_ha": [round(float(req.area_hectares or 0.0), 2)],
+            "vertices": [len(req.points)],
+            "created_at": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+            "source": ["Mangrove Biomass GIS"],
+        },
+        geometry=[poly],
+        crs="EPSG:4326",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        shp_path = os.path.join(tmpdir, f"{clean_name}.shp")
+        gdf.to_file(shp_path, driver="ESRI Shapefile", encoding="utf-8")
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for f in os.listdir(tmpdir):
+                if f.startswith(clean_name):
+                    zf.write(os.path.join(tmpdir, f), f)
+
+        zip_bytes = zip_buf.getvalue()
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{clean_name}.zip"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
 

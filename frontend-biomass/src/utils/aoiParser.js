@@ -255,7 +255,7 @@ export function exportAoiToCsv(points, areaHectares = 0, customName = 'Mangrove_
 
 // ── 5. CLIENT-SIDE FILE DOWNLOAD TRIGGER ─────────────────────────────────────
 export function triggerBrowserDownload(content, filename, mimeType = 'text/plain') {
-  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` })
+  const blob = content instanceof Blob ? content : new Blob([content], { type: `${mimeType};charset=utf-8` })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -265,3 +265,25 @@ export function triggerBrowserDownload(content, filename, mimeType = 'text/plain
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+// ── 6. EKSPOR KE SHAPEFILE (.ZIP) ───────────────────────────────────────────
+export async function exportAoiToShapefile(points, areaHectares = 0, customName = 'Mangrove_AOI') {
+  if (!points || points.length < 3) {
+    throw new Error('Area poligon tidak valid.')
+  }
+
+  const cleanName = (customName || 'Mangrove_AOI').trim().replace(/[^a-zA-Z0-9_\-]/g, '_')
+  const payload = {
+    points,
+    name: cleanName,
+    area_hectares: areaHectares,
+  }
+
+  const res = await axiosClient.post('/export-shapefile', payload, {
+    responseType: 'blob',
+  })
+
+  triggerBrowserDownload(res.data, `${cleanName}.zip`, 'application/zip')
+  return true
+}
+

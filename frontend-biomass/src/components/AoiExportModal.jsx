@@ -8,11 +8,13 @@ import {
   PictureOutlined,
   ExperimentOutlined,
   GlobalOutlined,
+  FileZipOutlined,
 } from '@ant-design/icons'
 import { useLanguage } from '../context/LanguageContext'
 import {
   exportAoiToGeoJson,
   exportAoiToCsv,
+  exportAoiToShapefile,
   triggerBrowserDownload,
 } from '../utils/aoiParser'
 import workspaceApi from '../api/WorkspaceApi'
@@ -36,6 +38,7 @@ const AoiExportModal = ({
   const [workspaces, setWorkspaces] = useState([])
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
   const [isSavingAstraGis, setIsSavingAstraGis] = useState(false)
+  const [isExportingShp, setIsExportingShp] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -82,7 +85,25 @@ const AoiExportModal = ({
     message.success('Berkas CSV koordinat berhasil diunduh!')
   }
 
-  // 3. Simpan GeoTIFF Sentinel-2 ke AstraGIS Workspace
+  // 3. Download Shapefile (.zip)
+  const handleDownloadShapefile = async () => {
+    if (!areaPoints || areaPoints.length < 3) {
+      message.error('Area poligon tidak valid.')
+      return
+    }
+    const cleanName = fileName.trim() || 'Mangrove_AOI'
+    setIsExportingShp(true)
+    try {
+      await exportAoiToShapefile(areaPoints, areaHectares, cleanName)
+      message.success('Berkas Shapefile (.zip) berhasil diunduh!')
+    } catch (err) {
+      message.error(err.response?.data?.detail || err.message || 'Gagal mengekspor berkas Shapefile.')
+    } finally {
+      setIsExportingShp(false)
+    }
+  }
+
+  // 4. Simpan GeoTIFF Sentinel-2 ke AstraGIS Workspace
   const handleSaveToAstraGis = async () => {
     if (!selectedWorkspaceId) {
       message.warning(t('selectTargetWorkspace'))
@@ -199,6 +220,55 @@ const AoiExportModal = ({
           >
             <DownloadOutlined />
             <span>{t('btnDownloadCsv')}</span>
+          </button>
+        </div>
+      ),
+    },
+    {
+      key: 'shp',
+      label: (
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
+          <FileZipOutlined className="text-amber-600" />
+          {t('tabShp')}
+        </span>
+      ),
+      children: (
+        <div className="flex flex-col gap-3 py-1">
+          <p className="text-xs text-gray-600 leading-relaxed">
+            {t('shpDesc')}
+          </p>
+
+          <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Format:</span>
+              <Tag color="gold">ESRI Shapefile (.zip)</Tag>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Isi Berkas:</span>
+              <span className="font-mono text-gray-700">.shp, .prj, .shx, .dbf, .cpg</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>CRS:</span>
+              <span className="font-mono text-gray-700">EPSG:4326 (WGS84)</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Total Luas:</span>
+              <span className="font-bold text-emerald-700">{areaHectares.toFixed(2)} Ha</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Jumlah Titik:</span>
+              <span className="font-mono text-gray-700">{areaPoints.length} Vertices</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadShapefile}
+            disabled={isExportingShp}
+            className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
+          >
+            <DownloadOutlined />
+            <span>{isExportingShp ? 'Menyiapkan Shapefile...' : t('btnDownloadShp')}</span>
           </button>
         </div>
       ),

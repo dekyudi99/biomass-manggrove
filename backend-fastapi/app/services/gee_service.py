@@ -168,6 +168,8 @@ class GeeAnalysisService:
     def _create_roi(coordinates: List[List[float]]) -> ee.Geometry.Polygon:
         """
         Mengonversi koordinat Leaflet [lat, lng] menjadi GEE [lng, lat].
+        Menyederhanakan geometri secara cerdas jika jumlah titik sangat besar (>1000)
+        agar terhindar dari batas kuota verteks Earth Engine (maks 4000 titik).
         """
         if not coordinates or len(coordinates) < 3:
             raise ValueError("Poligon minimal memerlukan 3 titik koordinat.")
@@ -178,6 +180,25 @@ class GeeAnalysisService:
         # Pastikan cincin koordinat tertutup
         if ee_coords[0] != ee_coords[-1]:
             ee_coords.append(ee_coords[0])
+
+        if len(ee_coords) > 1000:
+            try:
+                from shapely.geometry import Polygon as SPoly
+                poly = SPoly(ee_coords)
+                bounds = poly.bounds
+                span = max(bounds[2] - bounds[0], bounds[3] - bounds[1])
+                tol = max(0.0001, span / 2000.0)
+                simplified = poly.simplify(tol, preserve_topology=True)
+                if simplified.geom_type == 'Polygon' and len(simplified.exterior.coords) >= 3:
+                    ee_coords = list(simplified.exterior.coords)
+                    if len(ee_coords) > 2000:
+                        step = max(1, len(ee_coords) // 1500)
+                        sub = ee_coords[::step]
+                        if sub[0] != sub[-1]:
+                            sub.append(sub[0])
+                        ee_coords = sub
+            except Exception as simp_err:
+                print(f"Notice: Gagal menyederhanakan geometri besar: {simp_err}")
             
         return ee.Geometry.Polygon([ee_coords])
 

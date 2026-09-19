@@ -72,10 +72,14 @@ const GeeDatasetExtractorModal = ({
   // Load katalog satelit saat komponen dibuka
   useEffect(() => {
     if (isOpen) {
+      const nowStr = dayjs().format('YYYYMMDD')
+      if (!layerName) {
+        setLayerName(`${selectedSatelliteId.toUpperCase()}_Dataset_${nowStr}`)
+      }
       loadSatellites()
       loadWorkspaces()
     }
-  }, [isOpen])
+  }, [isOpen, selectedSatelliteId])
 
   const loadSatellites = async () => {
     try {
@@ -248,16 +252,13 @@ const GeeDatasetExtractorModal = ({
     message.success(t('copiedToClipboard'))
   }
 
-  // Simpan Dataset ke AstraGIS Workspace
+  // Simpan Dataset ke AstraGIS Workspace (Diteruskan ke GeoServer WMS)
   const handleSaveToAstraGis = async () => {
     if (!selectedWorkspaceId) {
       message.warning(t('selectTargetWorkspace'))
       return
     }
-    if (!layerName.trim()) {
-      message.warning('Nama layer tidak boleh kosong.')
-      return
-    }
+    const cleanLayerName = (layerName.trim() || `${selectedSatelliteId.toUpperCase()}_Dataset_${dayjs().format('YYYYMMDD')}`).replace(/[^a-zA-Z0-9_\-]/g, '_')
 
     setIsSavingAstraGis(true)
     try {
@@ -266,8 +267,8 @@ const GeeDatasetExtractorModal = ({
         satellite: selectedSatelliteId,
         bands: selectedBands,
         workspace_id: selectedWorkspaceId,
-        layer_name: layerName.trim(),
-        description: layerDescription.trim(),
+        layer_name: cleanLayerName,
+        description: layerDescription.trim() || `${selectedSatelliteId} composite (${compositeMethod}) on ${areaHectares.toFixed(2)} Ha`,
         start_date: dateRange[0].format('YYYY-MM-DD'),
         end_date: dateRange[1].format('YYYY-MM-DD'),
         cloud_percentage: cloudPct,
@@ -277,6 +278,7 @@ const GeeDatasetExtractorModal = ({
 
       await geeApi.saveDatasetToAstraGis(payload)
       message.success(t('saveDatasetSuccess'))
+      onClose()
     } catch (err) {
       message.error(err.response?.data?.detail || 'Gagal menyimpan dataset ke AstraGIS.')
     } finally {
@@ -567,13 +569,67 @@ const GeeDatasetExtractorModal = ({
             </div>
           </div>
 
-          {/* 4. TOMBOL AKSI UTAMA (PREVIEW & GENERATE DOWNLOAD) */}
+          {/* 4. OPSI UTAMA: TERBITKAN KE ASTRAGIS (GEOSERVER) */}
+          <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/70 p-3.5 rounded-2xl border border-blue-200/80 flex flex-col gap-2.5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                <CloudUploadOutlined className="text-blue-600 text-sm" />
+                <span>{t('saveDatasetToAstraGis')}</span>
+              </span>
+              <Tag color="blue" className="text-[10px] mr-0 font-medium">
+                ⚡ GeoServer WMS (Sangat Ringan)
+              </Tag>
+            </div>
+            <p className="text-[11px] text-blue-800 leading-snug">
+              Direkomendasikan untuk area luas (&gt;10.000 Ha): citra langsung diproses dan diteruskan ke GeoServer sebagai ubin WMS piramida cepat tanpa membebani browser.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-0.5">
+              <Select
+                placeholder={t('selectTargetWorkspace')}
+                value={selectedWorkspaceId}
+                onChange={setSelectedWorkspaceId}
+                className="w-full text-xs"
+                options={workspaces.map((w) => ({
+                  value: w.id,
+                  label: `${w.title || w.name} (${w.name})`,
+                }))}
+              />
+              <Input
+                placeholder="Nama Layer GeoTIFF"
+                value={layerName}
+                onChange={(e) => setLayerName(e.target.value)}
+                className="text-xs rounded-lg"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                placeholder="Keterangan dataset (opsional)..."
+                value={layerDescription}
+                onChange={(e) => setLayerDescription(e.target.value)}
+                className="text-xs rounded-lg flex-1"
+              />
+              <Button
+                type="primary"
+                onClick={handleSaveToAstraGis}
+                loading={isSavingAstraGis}
+                disabled={selectedBands.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 font-bold text-xs shrink-0 py-2 h-auto px-4 shadow-sm"
+              >
+                <CloudUploadOutlined />
+                <span>Terbitkan ke GeoServer</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* 5. TOMBOL AKSI ALTERNATIF (PREVIEW DI PETA & UNDUH GEOTIFF MENTAH) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={handlePreviewMap}
               disabled={isPreviewing || selectedBands.length === 0}
-              className="py-2.5 px-4 rounded-xl font-bold text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="py-2.5 px-4 rounded-xl font-bold text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               {isPreviewing ? <Spin size="small" /> : <EyeOutlined />}
               <span>{t('btnPreviewOnMap')}</span>
@@ -590,7 +646,7 @@ const GeeDatasetExtractorModal = ({
             </button>
           </div>
 
-          {/* 5. PANEL HASIL EKSTRAKSI & DOWNLOAD (JIKA SUDAH GENERATE) */}
+          {/* 6. PANEL HASIL EKSTRAKSI & DOWNLOAD LANGSUNG */}
           {datasetResult && (
             <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-200 flex flex-col gap-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -634,50 +690,6 @@ const GeeDatasetExtractorModal = ({
                   <CodeOutlined className="text-purple-600" />
                   <span>Python / PyTorch</span>
                 </button>
-              </div>
-
-              {/* Form Simpan ke AstraGIS */}
-              <div className="mt-2 pt-3 border-t border-emerald-200/70 flex flex-col gap-2">
-                <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <CloudUploadOutlined className="text-blue-600" />
-                  {t('saveDatasetToAstraGis')}
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Select
-                    placeholder={t('selectTargetWorkspace')}
-                    value={selectedWorkspaceId}
-                    onChange={setSelectedWorkspaceId}
-                    className="w-full text-xs"
-                    options={workspaces.map((w) => ({
-                      value: w.id,
-                      label: `${w.title || w.name} (${w.name})`,
-                    }))}
-                  />
-                  <Input
-                    placeholder="Nama Layer GeoTIFF"
-                    value={layerName}
-                    onChange={(e) => setLayerName(e.target.value)}
-                    className="text-xs rounded-lg"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Keterangan dataset (opsional)..."
-                    value={layerDescription}
-                    onChange={(e) => setLayerDescription(e.target.value)}
-                    className="text-xs rounded-lg flex-1"
-                  />
-                  <Button
-                    type="primary"
-                    onClick={handleSaveToAstraGis}
-                    loading={isSavingAstraGis}
-                    className="bg-blue-600 hover:bg-blue-700 font-bold text-xs shrink-0"
-                  >
-                    {t('save')}
-                  </Button>
-                </div>
               </div>
             </div>
           )}
