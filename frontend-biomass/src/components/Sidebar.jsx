@@ -419,10 +419,10 @@ const Sidebar = ({
                 </button>
               </div>
 
-              {/* Daftar Koordinat Poligon Ringkas */}
+              {/* Daftar Koordinat Poligon Ringkas (Dibatasi 25 titik pertama agar ringan seperti di QGIS) */}
               {areaPoints.length > 0 && (
-                <div className="max-h-24 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white flex flex-col gap-1 text-[11px] font-mono text-gray-600">
-                  {areaPoints.map((pt, idx) => (
+                <div className="max-h-28 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white flex flex-col gap-1 text-[11px] font-mono text-gray-600">
+                  {areaPoints.slice(0, 25).map((pt, idx) => (
                     <div key={idx} className="flex justify-between border-b border-gray-100 last:border-0 pb-0.5">
                       <span className="text-emerald-600 font-semibold">
                         {idx === 0 ? '🎯 #1' : `#${idx + 1}`}
@@ -432,6 +432,11 @@ const Sidebar = ({
                       </span>
                     </div>
                   ))}
+                  {areaPoints.length > 25 && (
+                    <div className="text-center text-[10px] text-gray-400 pt-1 font-sans">
+                      ... dan {areaPoints.length - 25} titik lainnya
+                    </div>
+                  )}
                 </div>
               )}
 

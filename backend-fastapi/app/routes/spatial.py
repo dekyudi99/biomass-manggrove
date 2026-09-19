@@ -257,6 +257,21 @@ async def parse_shapefile(
                 detail=f"Tipe geometri '{union_geom.geom_type}' tidak dapat digunakan sebagai AOI (harus bertipe Polygon/MultiPolygon)."
             )
 
+        # Jika jumlah titik sangat banyak (> 1000 titik), lakukan simplifikasi geometri adaptif
+        # agar ringan seperti di QGIS dan tidak membuat browser/Leaflet lag atau freeze
+        initial_coords = list(poly.exterior.coords)
+        if len(initial_coords) > 1000:
+            minx, miny, maxx, maxy = poly.bounds
+            span = max(maxx - minx, maxy - miny)
+            # Toleransi Douglas-Peucker adaptif (~0.05% dari dimensi poligon, maks ~50 meter)
+            tolerance = min(max(span * 0.0005, 0.0001), 0.005)
+            try:
+                simplified = poly.simplify(tolerance, preserve_topology=True)
+                if simplified.geom_type == "Polygon" and len(simplified.exterior.coords) >= 3:
+                    poly = simplified
+            except Exception:
+                pass
+
         raw_coords = list(poly.exterior.coords)
         if len(raw_coords) < 3:
             raise HTTPException(status_code=400, detail="Poligon Shapefile memiliki kurang dari 3 titik sudut.")

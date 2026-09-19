@@ -500,6 +500,7 @@ const Dashboard = () => {
               fillColor: '#10b981',
               fillOpacity: isAoiFillVisible ? (geePreviewLayer ? 0.12 : 0.35) : 0,
               weight: 2.5,
+              smoothFactor: 1.5,
               dashArray: !isAoiFillVisible ? '6, 6' : undefined,
             }}
           >
@@ -529,8 +530,8 @@ const Dashboard = () => {
           />
         )}
 
-        {/* Render titik-titik sudut yang diklik atau diedit */}
-        {(!isAreaClosed || isAoiVisible) && !isEditingRoi && areaPoints.map((point, index) => {
+        {/* Render titik-titik sudut HANYA saat user masih menggambar manual (belum ditutup) seperti di QGIS */}
+        {!isAreaClosed && areaPoints.map((point, index) => {
           const isFirstPoint = index === 0
           const canCloseNow = isFirstPoint && areaPoints.length >= 3 && !isAreaClosed
 
