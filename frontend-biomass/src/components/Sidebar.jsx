@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { message } from 'antd'
 import { useLanguage } from '../context/LanguageContext'
+import { parseGeoJsonAoi, parseCsvAoi } from '../utils/aoiParser'
 
 const Sidebar = ({
   mode,
@@ -15,6 +17,11 @@ const Sidebar = ({
   pointAddress,
   onCloseArea,
   onOpenGeeAnalysis,
+  onOpenDatasetExtractor,
+  onUploadAoi,
+  isEditingRoi = false,
+  onToggleEditRoi,
+  onOpenExportModal,
   isAoiVisible = true,
   onToggleAoi,
   isAoiFillVisible = true,
@@ -24,6 +31,7 @@ const Sidebar = ({
   otherSidebarOpen = false,
 }) => {
   const { t } = useLanguage()
+  const fileInputRef = useRef(null)
   const [localIsOpen, setLocalIsOpen] = useState(true)
   const isControlled = typeof propIsOpen === 'boolean'
   const isOpen = isControlled ? propIsOpen : localIsOpen
@@ -42,6 +50,49 @@ const Sidebar = ({
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  // Handler Upload Berkas AOI (GeoJSON / CSV)
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result
+        let points = []
+        const name = file.name.toLowerCase()
+
+        if (name.endsWith('.geojson') || name.endsWith('.json')) {
+          points = parseGeoJsonAoi(content)
+        } else if (name.endsWith('.csv')) {
+          points = parseCsvAoi(content)
+        } else {
+          try {
+            points = parseGeoJsonAoi(content)
+          } catch {
+            points = parseCsvAoi(content)
+          }
+        }
+
+        if (!points || points.length < 3) {
+          message.error('File poligon harus memiliki minimal 3 titik koordinat.')
+          return
+        }
+
+        if (onUploadAoi) {
+          onUploadAoi(points)
+        }
+      } catch (err) {
+        message.error(`${t('aoiUploadFailed')}: ${err.message}`)
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    }
+    reader.readAsText(file)
   }
 
   const handleUndoPoint = () => {
@@ -191,9 +242,9 @@ const Sidebar = ({
 
           {/* TAB 2: MODE POLIGON AREA */}
           {mode === 'area' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {/* Petunjuk Interaktif */}
-              <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-xl p-3 text-xs text-emerald-900 leading-relaxed">
+              <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-xl p-2.5 text-xs text-emerald-900 leading-relaxed">
                 {!isAreaClosed ? (
                   <>
                     👉 <strong>{t('drawUsageTitle')}</strong> {t('drawUsageDesc')}
@@ -204,6 +255,33 @@ const Sidebar = ({
                   </>
                 )}
               </div>
+
+              {/* Upload AOI (GeoJSON / CSV) */}
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".geojson,.json,.csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-2 px-3 bg-blue-50/80 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl border border-blue-200/80 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  title={t('uploadAoiHint')}
+                >
+                  <span>📁</span> {t('uploadAoiBtn')}
+                </button>
+              </div>
+
+              {/* Banner Indikator Edit ROI Aktif */}
+              {isEditingRoi && (
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-2 text-[11px] text-amber-900 leading-tight flex items-center gap-2 animate-pulse shadow-xs">
+                  <span className="text-base">✏️</span>
+                  <span className="font-semibold">{t('editingRoiActive')}</span>
+                </div>
+              )}
 
               {/* Status Area & Luas */}
               <div className="bg-gray-50 border border-gray-200/70 rounded-xl p-3 flex flex-col gap-2">
@@ -258,17 +336,25 @@ const Sidebar = ({
                 </button>
               )}
 
-              {/* Jika sudah ditutup, sediakan opsi buka kembali jika mau diedit & toggle AOI */}
-              {isAreaClosed && (
+              {/* Opsi Kontrol Mode Edit & Visibilitas AOI */}
+              {isAreaClosed && areaPoints.length >= 3 && (
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-1.5">
+                    {/* Tombol Toggle Edit ROI di Peta */}
                     <button
                       type="button"
-                      onClick={() => setIsAreaClosed(false)}
-                      className="flex-1 py-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-lg border border-gray-300 transition-all cursor-pointer flex items-center justify-center gap-1"
+                      onClick={onToggleEditRoi}
+                      className={`flex-1 py-1.5 px-2 font-bold text-xs rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                        isEditingRoi
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400/40 shadow-xs'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300'
+                      }`}
                     >
-                      <span>✏️</span> {t('reopenOrAddPoints')}
+                      <span>{isEditingRoi ? '💾' : '✏️'}</span>
+                      <span>{isEditingRoi ? t('finishEditRoiBtn') : t('editRoiBtn')}</span>
                     </button>
+
+                    {/* Tombol Sembunyikan / Tampilkan AOI */}
                     {onToggleAoi && (
                       <button
                         type="button"
@@ -285,6 +371,15 @@ const Sidebar = ({
                       </button>
                     )}
                   </div>
+
+                  {/* Tombol Ekspor & Unduh Data (CSV / GeoJSON / GeoTIFF) */}
+                  <button
+                    type="button"
+                    onClick={onOpenExportModal}
+                    className="w-full py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-xl border border-purple-200/80 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>💾</span> {t('exportDataBtn')}
+                  </button>
                 </div>
               )}
 
@@ -322,18 +417,32 @@ const Sidebar = ({
                 </div>
               )}
 
-              {/* Tombol Aksi Analisis GEE (Hanya aktif jika SUDAH DITUTUP) */}
-              <button
-                disabled={!isAreaClosed || areaPoints.length < 3}
-                onClick={() => {
-                  if (onOpenGeeAnalysis) {
-                    onOpenGeeAnalysis()
-                  }
-                }}
-                className="w-full mt-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>🛰️</span> {t('analyzeBiomassGEE')}
-              </button>
+              {/* Tombol Aksi Analisis GEE & Ekstraksi Dataset (Hanya aktif jika SUDAH DITUTUP) */}
+              <div className="flex flex-col gap-1.5 mt-1">
+                <button
+                  disabled={!isAreaClosed || areaPoints.length < 3}
+                  onClick={() => {
+                    if (onOpenGeeAnalysis) {
+                      onOpenGeeAnalysis()
+                    }
+                  }}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>🛰️</span> {t('analyzeBiomassGEE')}
+                </button>
+
+                <button
+                  disabled={!isAreaClosed || areaPoints.length < 3}
+                  onClick={() => {
+                    if (onOpenDatasetExtractor) {
+                      onOpenDatasetExtractor()
+                    }
+                  }}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>🔬</span> {t('btnExtractDataset')}
+                </button>
+              </div>
             </div>
           )}
         </div>

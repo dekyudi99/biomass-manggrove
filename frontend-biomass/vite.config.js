@@ -14,6 +14,16 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
-    allowedHosts: ['biomass-manggrove.ikya.my.id'],
+    allowedHosts: true,
+    proxy: {
+      '/geoserver': {
+        target: 'http://host.docker.internal:8080',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

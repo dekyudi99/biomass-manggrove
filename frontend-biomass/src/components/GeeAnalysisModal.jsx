@@ -94,6 +94,7 @@ const GEE_SECTIONS = [
     titleKey: 'categoryBiomass',
     descKey: 'categoryBiomassDesc',
     icon: '🌳',
+    underDevelopment: true,
     indices: [
       {
         id: 'agb',
@@ -101,6 +102,7 @@ const GEE_SECTIONS = [
         tagKey: 'idxTag_agb',
         descKey: 'idxDesc_agb',
         defaultName: 'Mangrove_Biomass_AGB',
+        underDevelopment: true,
       },
       {
         id: 'carbon',
@@ -108,6 +110,7 @@ const GEE_SECTIONS = [
         tagKey: 'idxTag_carbon',
         descKey: 'idxDesc_carbon',
         defaultName: 'Mangrove_Carbon_Stock',
+        underDevelopment: true,
       },
       {
         id: 'canopy_density',
@@ -115,6 +118,7 @@ const GEE_SECTIONS = [
         tagKey: 'idxTag_canopy_density',
         descKey: 'idxDesc_canopy_density',
         defaultName: 'Mangrove_Canopy_Density',
+        underDevelopment: true,
       },
     ],
   },
@@ -139,7 +143,6 @@ const GeeAnalysisModal = ({
   // State Pilihan Indeks
   const [selectedSection, setSelectedSection] = useState('vegetation')
   const [selectedIndex, setSelectedIndex] = useState('ndvi')
-  const [expandedIndexDesc, setExpandedIndexDesc] = useState({})
 
   // State Parameter Satelit
   const [activeQuickMonths, setActiveQuickMonths] = useState(6)
@@ -207,6 +210,12 @@ const GeeAnalysisModal = ({
 
   // Jalankan Analisis GEE
   const handleRunAnalysis = async () => {
+    const currentSec = GEE_SECTIONS.find((s) => s.key === selectedSection)
+    if (currentSec?.underDevelopment) {
+      message.warning(t('biomassUnderDevNotice'))
+      return
+    }
+
     if (!areaPoints || areaPoints.length < 3) {
       message.error('Area poligon minimal harus memiliki 3 titik koordinat.')
       return
@@ -340,48 +349,49 @@ const GeeAnalysisModal = ({
       footer={null}
       width={780}
       centered
-      closeIcon={
-        <div
-          className="flex items-center gap-1 -mr-1 -mt-0.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Tombol Minimize (-) */}
-          <Tooltip title={t('minimizeModal')} placement="bottom">
-            <button
-              type="button"
-              onClick={handleMinimize}
-              className="w-7 h-7 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 flex items-center justify-center font-bold text-base transition cursor-pointer border border-transparent hover:border-gray-200 active:scale-95"
-              aria-label={t('minimizeModal')}
-            >
-              —
-            </button>
-          </Tooltip>
-
-          {/* Tombol Close & Clear (✕) */}
-          <Tooltip title={t('closeAndClearModal')} placement="bottom">
-            <button
-              type="button"
-              onClick={handleCloseAndClear}
-              className="w-7 h-7 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center font-bold text-sm transition cursor-pointer border border-transparent hover:border-red-200 active:scale-95"
-              aria-label={t('closeAndClearModal')}
-            >
-              ✕
-            </button>
-          </Tooltip>
-        </div>
-      }
+      closable={false}
       title={
-        <div className="flex items-center gap-2.5 pr-16">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
-            🛰️
+        <div className="flex items-center justify-between gap-2.5 w-full">
+          {/* Header Kiri: Icon, Judul, & Subtitle Area */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+              🛰️
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm sm:text-base font-bold text-gray-800 leading-tight truncate">
+                {t('geeAnalysisTitle')}
+              </h3>
+              <p className="text-[11px] sm:text-xs text-gray-500 font-normal truncate">
+                {t('geeAnalysisSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} Titik)
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h3 className="text-base font-bold text-gray-800 leading-tight truncate">
-              {t('geeAnalysisTitle')}
-            </h3>
-            <p className="text-xs text-gray-500 font-normal truncate">
-              {t('geeAnalysisSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} Titik)
-            </p>
+
+          {/* Header Kanan: Window Controls (Minimize & Close) */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-1">
+            {/* Tombol Minimize (-) */}
+            <Tooltip title={t('minimizeModal')} placement="bottom">
+              <button
+                type="button"
+                onClick={handleMinimize}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 flex items-center justify-center font-bold text-base transition cursor-pointer border border-gray-200 active:scale-95 shadow-sm"
+                aria-label={t('minimizeModal')}
+              >
+                —
+              </button>
+            </Tooltip>
+
+            {/* Tombol Close & Clear (✕) */}
+            <Tooltip title={t('closeAndClearModal')} placement="bottom">
+              <button
+                type="button"
+                onClick={handleCloseAndClear}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 flex items-center justify-center font-bold text-xs sm:text-sm transition cursor-pointer border border-gray-200 hover:border-red-300 active:scale-95 shadow-sm"
+                aria-label={t('closeAndClearModal')}
+              >
+                ✕
+              </button>
+            </Tooltip>
           </div>
         </div>
       }
@@ -394,80 +404,124 @@ const GeeAnalysisModal = ({
             {GEE_SECTIONS.map((sec) => (
               <button
                 key={sec.key}
+                type="button"
                 onClick={() => {
                   setSelectedSection(sec.key)
-                  setSelectedIndex(sec.indices[0].id)
+                  if (!sec.underDevelopment) {
+                    setSelectedIndex(sec.indices[0].id)
+                  }
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   selectedSection === sec.key
-                    ? 'bg-emerald-600 text-white shadow-sm'
+                    ? sec.underDevelopment
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'bg-emerald-600 text-white shadow-sm'
                     : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/70'
                 }`}
               >
                 <span>{sec.icon}</span>
                 <span>{t(sec.titleKey)}</span>
+                {sec.underDevelopment && (
+                  <span
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-semibold uppercase tracking-wider ${
+                      selectedSection === sec.key
+                        ? 'bg-amber-200 text-amber-950'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {t('underDevBadge')}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
           {/* DAFTAR INDEKS PADA KATEGORI AKTIF */}
           {GEE_SECTIONS.filter((s) => s.key === selectedSection).map((sec) => (
-            <div key={sec.key} className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {sec.indices.map((idx) => {
-                const isSelected = selectedIndex === idx.id
-                const isExpanded = !!expandedIndexDesc[idx.id]
-                const localizedName = t(idx.nameKey)
-                const localizedTag = t(idx.tagKey)
-                const localizedDesc = t(idx.descKey)
-                const shortName = localizedName.includes('(')
-                  ? localizedName.split('(')[0].trim()
-                  : localizedName
-
-                return (
-                  <div
-                    key={idx.id}
-                    onClick={() => setSelectedIndex(idx.id)}
-                    className={`p-2.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
-                      isSelected
-                        ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
-                        : 'bg-white border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="font-bold text-xs text-gray-800 truncate" title={localizedName}>
-                          {shortName}
-                        </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0">
-                          {localizedTag}
-                        </span>
-                      </div>
-                      <p
-                        className={`text-[11px] text-gray-500 leading-snug transition-all ${
-                          isExpanded ? '' : 'line-clamp-2'
-                        }`}
-                      >
-                        {localizedDesc}
-                      </p>
-                      {localizedDesc.length > 50 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setExpandedIndexDesc((prev) => ({
-                              ...prev,
-                              [idx.id]: !prev[idx.id],
-                            }))
-                          }}
-                          className="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer mt-1.5 self-start inline-flex items-center gap-0.5 hover:underline"
-                        >
-                          {isExpanded ? t('showLess') : t('readMore')}
-                        </button>
-                      )}
-                    </div>
+            <div key={sec.key}>
+              {/* Banner Peringatan Kategori Dalam Masa Pengembangan */}
+              {sec.underDevelopment && (
+                <div className="mb-3 p-3 rounded-2xl bg-amber-50/90 border border-amber-200/90 flex items-start gap-3 text-amber-950 shadow-sm">
+                  <div className="w-7 h-7 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                    🚧
                   </div>
-                )
-              })}
+                  <div className="text-xs min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-amber-900 text-xs sm:text-sm">
+                        {t('underDevTitle')}
+                      </p>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-semibold">
+                        {t('underDevBadge')}
+                      </span>
+                    </div>
+                    <p className="text-amber-800/90 mt-1 leading-relaxed text-[11px] sm:text-xs">
+                      {t('biomassUnderDevNotice')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {sec.indices.map((idx) => {
+                  const isUnderDev = sec.underDevelopment || idx.underDevelopment
+                  const isSelected = selectedIndex === idx.id
+                  const localizedName = t(idx.nameKey)
+                  const localizedTag = t(idx.tagKey)
+                  const localizedDesc = t(idx.descKey)
+                  const shortName = localizedName.includes('(')
+                    ? localizedName.split('(')[0].trim()
+                    : localizedName
+
+                  return (
+                    <div
+                      key={idx.id}
+                      onClick={() => {
+                        if (!isUnderDev) {
+                          setSelectedIndex(idx.id)
+                        } else {
+                          message.info(t('underDevNoticeShort'))
+                        }
+                      }}
+                      className={`p-2.5 sm:p-3 rounded-xl border transition flex flex-col justify-between ${
+                        isUnderDev
+                          ? 'bg-gray-50/80 border-dashed border-gray-300 opacity-60 cursor-not-allowed select-none'
+                          : isSelected
+                          ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm cursor-pointer'
+                          : 'bg-white border-gray-200 hover:border-gray-300 cursor-pointer'
+                      }`}
+                      title={isUnderDev ? t('underDevNoticeShort') : localizedName}
+                    >
+                      <div className="flex flex-col h-full justify-between gap-1.5">
+                        <div>
+                          <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                            <span className="font-bold text-xs sm:text-sm text-gray-800 truncate" title={localizedName}>
+                              {shortName}
+                            </span>
+                            <span
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${
+                                isUnderDev
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200/60'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {isUnderDev ? t('underDevBadge') : localizedTag}
+                            </span>
+                          </div>
+                          <p className="text-[11px] sm:text-xs text-gray-500 leading-snug">
+                            {localizedDesc}
+                          </p>
+                        </div>
+                        {isUnderDev && (
+                          <div className="mt-1 pt-1.5 border-t border-gray-200/60 text-[10px] text-amber-700 font-semibold flex items-center gap-1">
+                            <span>🔒</span>
+                            <span>{t('underDevBadge')}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
         </div>
@@ -552,23 +606,38 @@ const GeeAnalysisModal = ({
         </div>
 
         {/* TOMBOL JALANKAN ANALISIS */}
-        <button
-          onClick={handleRunAnalysis}
-          disabled={isAnalyzing}
-          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-        >
-          {isAnalyzing ? (
-            <>
-              <Spin size="small" />
-              <span>{t('runningAnalysis')}</span>
-            </>
-          ) : (
-            <>
-              <ThunderboltOutlined className="text-sm font-extrabold" />
-              <span>{t('runAnalysisBtn')}</span>
-            </>
-          )}
-        </button>
+        {(() => {
+          const isUnderDev = GEE_SECTIONS.find((s) => s.key === selectedSection)?.underDevelopment
+          return (
+            <button
+              type="button"
+              onClick={handleRunAnalysis}
+              disabled={isAnalyzing || isUnderDev}
+              className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
+                isUnderDev
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-90 shadow-none'
+                  : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white cursor-pointer'
+              }`}
+            >
+              {isUnderDev ? (
+                <>
+                  <span>🚧</span>
+                  <span>{t('btnUnderDevelopment')}</span>
+                </>
+              ) : isAnalyzing ? (
+                <>
+                  <Spin size="small" />
+                  <span>{t('runningAnalysis')}</span>
+                </>
+              ) : (
+                <>
+                  <ThunderboltOutlined className="text-sm font-extrabold" />
+                  <span>{t('runAnalysisBtn')}</span>
+                </>
+              )}
+            </button>
+          )
+        })()}
 
         {/* HASIL ANALISIS GEE */}
         {analysisResult && (

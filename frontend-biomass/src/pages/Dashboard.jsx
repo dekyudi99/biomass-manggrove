@@ -22,6 +22,8 @@ import SpatialSidebar from '../components/SpatialSidebar/SpatialSidebar'
 import MapFlyController from '../components/MapFlyController'
 import FloatingMapControls from '../components/FloatingMapControls'
 import GeeAnalysisModal from '../components/GeeAnalysisModal'
+import GeeDatasetExtractorModal from '../components/GeeDatasetExtractorModal'
+import AoiExportModal from '../components/AoiExportModal'
 import { useLanguage } from '../context/LanguageContext'
 
 // Fix icon marker bawaan Leaflet di React/Vite
@@ -106,6 +108,9 @@ const Dashboard = () => {
 
   // State untuk Modal Analisis GEE & Layer Preview GEE di Peta
   const [isGeeModalOpen, setIsGeeModalOpen] = useState(false)
+  const [isDatasetExtractorOpen, setIsDatasetExtractorOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isEditingRoi, setIsEditingRoi] = useState(false)
   const [geePreviewLayer, setGeePreviewLayer] = useState(null)
 
   // State untuk Visibilitas AOI Poligon (agar warna hijau tidak menimpa/mengubah warna GEE)
@@ -210,18 +215,25 @@ const Dashboard = () => {
     return calculatePolygonAreaInHectares(areaPoints)
   }, [areaPoints, isAreaClosed])
 
-  // Helper resolve URL WMS dengan opsi override dari .env (VITE_GEOSERVER_WMS_URL)
+  // Helper resolve URL WMS:
+  // Selalu gunakan same-origin /geoserver jika diakses lewat HTTPS/domain publik
+  // agar tidak terblokir Mixed Content (HTTPS vs HTTP) dan selalu ter-proxy dengan aman.
   const resolveWmsUrl = (wmsUrl) => {
-    const overrideBase = import.meta.env.VITE_GEOSERVER_WMS_URL
-    if (!overrideBase || !wmsUrl) return wmsUrl
+    if (!wmsUrl) return wmsUrl
     try {
-      const parsed = new URL(wmsUrl)
-      const geoserverIdx = parsed.pathname.indexOf('/geoserver/')
-      const relPath =
-        geoserverIdx !== -1
-          ? parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
-          : parsed.pathname
-      return `${overrideBase.replace(/\/+$/, '')}${relPath}${parsed.search}`
+      const parsed = new URL(wmsUrl, window.location.origin)
+      const geoserverIdx = parsed.pathname.indexOf('/geoserver')
+      if (geoserverIdx !== -1) {
+        const isHttpsPage = window.location.protocol === 'https:'
+        const customWms = import.meta.env.VITE_GEOSERVER_WMS_URL
+        if (customWms && !isHttpsPage && !customWms.includes('localhost')) {
+          const relPath = parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
+          return `${customWms.replace(/\/+$/, '')}${relPath}${parsed.search}`
+        }
+        const relPath = parsed.pathname.substring(geoserverIdx)
+        return `${window.location.origin}${relPath}${parsed.search}`
+      }
+      return wmsUrl
     } catch {
       return wmsUrl
     }
@@ -271,6 +283,29 @@ const Dashboard = () => {
     }
   }
 
+  // Handler saat file AOI diunggah (GeoJSON / CSV)
+  const handleAoiUploaded = (points) => {
+    if (!points || points.length < 3) return
+    setAreaPoints(points)
+    setIsAreaClosed(true)
+    setMode('area')
+    setIsEditingRoi(false)
+
+    // Hitung bounding box koordinat untuk otomatis mengarahkan peta (fitBounds)
+    const lats = points.map((p) => p[0])
+    const lngs = points.map((p) => p[1])
+    const minLat = Math.min(...lats)
+    const maxLat = Math.max(...lats)
+    const minLng = Math.min(...lngs)
+    const maxLng = Math.max(...lngs)
+
+    setFlyTarget({
+      bbox: [minLng, minLat, maxLng, maxLat],
+      epsg: 4326,
+      timestamp: Date.now(),
+    })
+  }
+
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden">
       {/* Backdrop gelap di mobile (<1024px) jika salah satu sidebar dibuka */}
@@ -300,6 +335,11 @@ const Dashboard = () => {
         pointAddress={pointAddress}
         onCloseArea={handleCloseArea}
         onOpenGeeAnalysis={() => setIsGeeModalOpen(true)}
+        onOpenDatasetExtractor={() => setIsDatasetExtractorOpen(true)}
+        onUploadAoi={handleAoiUploaded}
+        isEditingRoi={isEditingRoi}
+        onToggleEditRoi={() => setIsEditingRoi((prev) => !prev)}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
         isAoiVisible={isAoiVisible}
         onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
         isAoiFillVisible={isAoiFillVisible}
@@ -489,8 +529,8 @@ const Dashboard = () => {
           />
         )}
 
-        {/* Render titik-titik sudut yang diklik (disembunyikan jika area sudah dikunci dan AOI disembunyikan) */}
-        {(!isAreaClosed || isAoiVisible) && areaPoints.map((point, index) => {
+        {/* Render titik-titik sudut yang diklik atau diedit */}
+        {(!isAreaClosed || isAoiVisible) && !isEditingRoi && areaPoints.map((point, index) => {
           const isFirstPoint = index === 0
           const canCloseNow = isFirstPoint && areaPoints.length >= 3 && !isAreaClosed
 
@@ -524,6 +564,127 @@ const Dashboard = () => {
             </CircleMarker>
           )
         })}
+
+        {/* MODE EDIT ROI: Render Marker Interaktif yang Dapat Digeser (Draggable) */}
+        {isEditingRoi && isAreaClosed && (
+          <>
+            {/* 1. Marker Titik Sudut Utama (Draggable) */}
+            {areaPoints.map((point, idx) => (
+              <Marker
+                key={`edit-vertex-${idx}`}
+                position={point}
+                draggable={true}
+                icon={L.divIcon({
+                  className: 'custom-edit-vertex-icon',
+                  html: `
+                    <div style="
+                      width: 22px;
+                      height: 22px;
+                      border-radius: 50%;
+                      background-color: #f59e0b;
+                      border: 2px solid #ffffff;
+                      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      color: #ffffff;
+                      font-weight: bold;
+                      font-size: 10px;
+                      cursor: grab;
+                    ">
+                      ${idx + 1}
+                    </div>
+                  `,
+                  iconSize: [22, 22],
+                  iconAnchor: [11, 11],
+                })}
+                eventHandlers={{
+                  dragend: (e) => {
+                    const newLatLng = e.target.getLatLng()
+                    setAreaPoints((prev) => {
+                      const updated = [...prev]
+                      updated[idx] = [newLatLng.lat, newLatLng.lng]
+                      return updated
+                    })
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="text-xs p-1">
+                    <p className="font-bold text-amber-800 text-sm mb-1">Titik Sudut #{idx + 1}</p>
+                    <p className="font-mono text-[10px] text-gray-600 mb-1">
+                      Lat: {point[0].toFixed(6)}, Lng: {point[1].toFixed(6)}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mb-2">
+                      💡 Geser marker ini di peta untuk mengubah bentuk area.
+                    </p>
+                    {areaPoints.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAreaPoints((prev) => prev.filter((_, i) => i !== idx))
+                        }}
+                        className="w-full py-1 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold border border-red-200 cursor-pointer transition"
+                      >
+                        🗑️ Hapus Titik Ini
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
+            {/* 2. Marker Midpoint Virtual (Klik untuk menambah titik baru di tengah sisi) */}
+            {areaPoints.length >= 3 && areaPoints.map((point, idx) => {
+              const nextPoint = areaPoints[(idx + 1) % areaPoints.length]
+              const midLat = (point[0] + nextPoint[0]) / 2
+              const midLng = (point[1] + nextPoint[1]) / 2
+
+              return (
+                <Marker
+                  key={`mid-vertex-${idx}`}
+                  position={[midLat, midLng]}
+                  icon={L.divIcon({
+                    className: 'custom-mid-vertex-icon',
+                    html: `
+                      <div style="
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background-color: #3b82f6;
+                        border: 2px solid #ffffff;
+                        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #ffffff;
+                        font-size: 11px;
+                        font-weight: bold;
+                        line-height: 1;
+                      ">+</div>
+                    `,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
+                  })}
+                  eventHandlers={{
+                    click: () => {
+                      setAreaPoints((prev) => {
+                        const updated = [...prev]
+                        updated.splice(idx + 1, 0, [midLat, midLng])
+                        return updated
+                      })
+                    },
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -8]}>
+                    <span className="text-[10px] font-semibold">{t('insertVertexTip')}</span>
+                  </Tooltip>
+                </Marker>
+              )
+            })}
+          </>
+        )}
       </MapContainer>
 
       {/* Layer Control melayang di pojok kiri bawah (Google Maps Style) */}
@@ -534,7 +695,7 @@ const Dashboard = () => {
 
       {/* Floating Indicator Layer Preview GEE Aktif */}
       {geePreviewLayer && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[900] bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg border border-emerald-300 flex items-center gap-2.5 text-xs max-w-[95vw] overflow-x-auto no-scrollbar">
+        <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-[900] bg-white/95 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-lg border border-emerald-300 flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-xs max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar">
           <span className="flex h-2 w-2 relative shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -546,7 +707,7 @@ const Dashboard = () => {
           {/* Quick Toggle Sembunyikan/Tampilkan AOI agar warna satelit GEE murni */}
           <button
             onClick={() => setIsAoiVisible((prev) => !prev)}
-            className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] cursor-pointer transition border whitespace-nowrap flex items-center gap-1.5 ${
+            className={`px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full font-bold text-[10px] sm:text-[11px] cursor-pointer transition border whitespace-nowrap flex items-center gap-1 sm:gap-1.5 ${
               !isAoiVisible
                 ? 'bg-amber-100 text-amber-900 border-amber-400 ring-1 ring-amber-400/40'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
@@ -558,14 +719,20 @@ const Dashboard = () => {
           </button>
 
           <button
-            onClick={() => setIsGeeModalOpen(true)}
-            className="text-blue-600 hover:text-blue-800 font-medium underline text-[11px] cursor-pointer whitespace-nowrap"
+            onClick={() => {
+              if (geePreviewLayer?.isDataset) {
+                setIsDatasetExtractorOpen(true)
+              } else {
+                setIsGeeModalOpen(true)
+              }
+            }}
+            className="text-blue-600 hover:text-blue-800 font-medium underline text-[10px] sm:text-[11px] cursor-pointer whitespace-nowrap"
           >
             {t('analysisResults')}
           </button>
           <button
             onClick={() => setGeePreviewLayer(null)}
-            className="text-gray-400 hover:text-red-500 font-bold ml-1 text-sm cursor-pointer shrink-0"
+            className="text-gray-400 hover:text-red-500 font-bold ml-0.5 sm:ml-1 text-xs sm:text-sm cursor-pointer shrink-0"
             title="Tutup preview"
           >
             ✕
@@ -589,6 +756,32 @@ const Dashboard = () => {
         onLayerSavedToAstraGis={(result) => {
           // Trigger refresh layer jika ada
         }}
+      />
+
+      {/* Modal Ekstraksi Dataset Citra Satelit GEE untuk Peneliti / ML Training */}
+      <GeeDatasetExtractorModal
+        isOpen={isDatasetExtractorOpen}
+        onClose={() => setIsDatasetExtractorOpen(false)}
+        areaPoints={areaPoints}
+        areaHectares={areaHectares}
+        onApplyPreviewLayer={(layerData) => {
+          setGeePreviewLayer({
+            ...layerData,
+            isDataset: true,
+          })
+        }}
+        onClearPreviewLayer={() => setGeePreviewLayer(null)}
+        activePreviewLayer={geePreviewLayer}
+      />
+
+      {/* Modal Ekspor & Unduh Data AOI (GeoJSON, CSV, GeoTIFF / AstraGIS) */}
+      <AoiExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        areaPoints={areaPoints}
+        areaHectares={areaHectares}
+        onOpenGeeAnalysis={() => setIsGeeModalOpen(true)}
+        onOpenDatasetExtractor={() => setIsDatasetExtractorOpen(true)}
       />
     </div>
   )

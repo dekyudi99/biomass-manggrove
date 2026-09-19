@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from app.services.gee_service import GeeAnalysisService, PALETTES
+from app.services.gee_service import GeeAnalysisService, PALETTES, SATELLITES_CATALOG
 
 router = APIRouter(prefix="/gee", tags=["Google Earth Engine"])
 
@@ -171,3 +171,120 @@ async def save_to_astragis(req: SaveToAstraGisRequest):
         end_date=req.end_date,
         cloud_percentage=req.cloud_percentage,
     )
+
+
+# =========================================================================
+# ENDPOINTS EKSTRAKSI DATASET CITRA SATELIT (UNTUK RESEARCHER / ML TRAINING)
+# =========================================================================
+
+class DatasetPreviewRequest(BaseModel):
+    coordinates: List[List[float]] = Field(
+        ...,
+        description="Daftar titik koordinat poligon [lat, lng] dari Leaflet map"
+    )
+    satellite: str = Field("sentinel2", description="ID satelit: sentinel2, landsat89, sentinel1")
+    bands: Optional[List[str]] = Field(None, description="Daftar band yang dipilih (contoh: ['B4', 'B3', 'B2'])")
+    start_date: Optional[str] = Field(None, description="Tanggal awal (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="Tanggal akhir (YYYY-MM-DD)")
+    cloud_percentage: int = Field(20, ge=1, le=100, description="Maksimal tutupan awan (%)")
+    composite_method: str = Field("median", description="Metode reduksi: median, mean, min, max, mosaic")
+    orbit_pass: str = Field("ANY", description="Orbit pass SAR: ANY, ASCENDING, DESCENDING")
+
+
+class DatasetDownloadRequest(BaseModel):
+    coordinates: List[List[float]] = Field(
+        ...,
+        description="Daftar titik koordinat poligon [lat, lng] dari Leaflet map"
+    )
+    satellite: str = Field("sentinel2", description="ID satelit: sentinel2, landsat89, sentinel1")
+    bands: Optional[List[str]] = Field(None, description="Daftar band yang dipilih")
+    start_date: Optional[str] = Field(None, description="Tanggal awal (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="Tanggal akhir (YYYY-MM-DD)")
+    cloud_percentage: int = Field(20, ge=1, le=100, description="Maksimal tutupan awan (%)")
+    composite_method: str = Field("median", description="Metode reduksi: median, mean, min, max, mosaic")
+    orbit_pass: str = Field("ANY", description="Orbit pass SAR: ANY, ASCENDING, DESCENDING")
+    custom_name: Optional[str] = Field(None, description="Nama kustom dataset")
+
+
+class DatasetSaveAstraGisRequest(BaseModel):
+    coordinates: List[List[float]] = Field(
+        ...,
+        description="Daftar titik koordinat poligon [lat, lng] dari Leaflet map"
+    )
+    satellite: str = Field("sentinel2", description="ID satelit: sentinel2, landsat89, sentinel1")
+    bands: Optional[List[str]] = Field(None, description="Daftar band yang dipilih")
+    workspace_id: int = Field(..., description="ID workspace AstraGIS tujuan")
+    layer_name: str = Field(..., min_length=1, max_length=150, description="Nama layer di AstraGIS")
+    description: Optional[str] = Field("", description="Deskripsi singkat dataset")
+    start_date: Optional[str] = Field(None, description="Tanggal awal (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="Tanggal akhir (YYYY-MM-DD)")
+    cloud_percentage: int = Field(20, ge=1, le=100, description="Maksimal tutupan awan (%)")
+    composite_method: str = Field("median", description="Metode reduksi: median, mean, min, max, mosaic")
+    orbit_pass: str = Field("ANY", description="Orbit pass SAR: ANY, ASCENDING, DESCENDING")
+
+
+@router.get("/satellites")
+def get_available_satellites():
+    """
+    Mengambil katalog satelit yang didukung untuk ekstraksi dataset riset (Sentinel-2, Landsat 8/9, Sentinel-1 SAR).
+    """
+    return {
+        "status": "success",
+        "satellites": list(SATELLITES_CATALOG.values()),
+    }
+
+
+@router.post("/dataset/preview")
+async def preview_satellite_dataset(req: DatasetPreviewRequest):
+    """
+    Menghasilkan tile preview di Leaflet untuk citra satelit mentah atau komposit band yang dipilih peneliti.
+    """
+    return await GeeAnalysisService.extract_satellite_dataset_preview(
+        coordinates=req.coordinates,
+        satellite=req.satellite,
+        bands=req.bands,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        cloud_percentage=req.cloud_percentage,
+        composite_method=req.composite_method,
+        orbit_pass=req.orbit_pass,
+    )
+
+
+@router.post("/dataset/download-url")
+async def get_satellite_dataset_download_url(req: DatasetDownloadRequest):
+    """
+    Mengekspor GeoTIFF multi-band langsung dari GEE dan menyusun dataset manifest JSON berstandar FAIR untuk ML training.
+    """
+    return await GeeAnalysisService.extract_satellite_dataset_download(
+        coordinates=req.coordinates,
+        satellite=req.satellite,
+        bands=req.bands,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        cloud_percentage=req.cloud_percentage,
+        composite_method=req.composite_method,
+        orbit_pass=req.orbit_pass,
+        custom_name=req.custom_name,
+    )
+
+
+@router.post("/dataset/save-to-astragis")
+async def save_satellite_dataset_to_astragis(req: DatasetSaveAstraGisRequest):
+    """
+    Mengekspor dataset multi-band citra satelit dan mempublikasikannya langsung ke workspace AstraGIS GeoServer.
+    """
+    return await GeeAnalysisService.save_dataset_to_astragis(
+        coordinates=req.coordinates,
+        satellite=req.satellite,
+        bands=req.bands,
+        workspace_id=req.workspace_id,
+        layer_name=req.layer_name,
+        description=req.description,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        cloud_percentage=req.cloud_percentage,
+        composite_method=req.composite_method,
+        orbit_pass=req.orbit_pass,
+    )
+
