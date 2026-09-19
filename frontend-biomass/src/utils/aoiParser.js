@@ -147,21 +147,6 @@ export function parseCsvAoi(csvText) {
 }
 
 // ── 3. PARSER SHAPEFILE (.ZIP / .SHP) ─────────────────────────────────────────
-function isValidLatLngPoints(points) {
-  if (!Array.isArray(points) || points.length < 3) return false
-  return points.every(
-    ([lat, lng]) =>
-      typeof lat === 'number' &&
-      typeof lng === 'number' &&
-      !isNaN(lat) &&
-      !isNaN(lng) &&
-      lat >= -90 &&
-      lat <= 90 &&
-      lng >= -180 &&
-      lng <= 180
-  )
-}
-
 export async function parseShapefileViaBackend(file) {
   const formData = new FormData()
   formData.append('file', file)
@@ -187,44 +172,9 @@ export async function parseShapefileAoi(file) {
     throw new Error('Format berkas tidak didukung. Harap unggah berkas .zip atau .shp.')
   }
 
-  // Tingkat 1: Coba parsing cepat langsung di memori browser dengan shpjs
-  try {
-    const arrayBuffer = await file.arrayBuffer()
-    const shpModule = await import('shpjs')
-    const shp = shpModule.default || shpModule
-
-    let points = null
-
-    if (isZip) {
-      // shpjs secara otomatis membaca berkas .shp, .prj, .dbf di dalam ZIP dan mereproyeksi ke WGS84
-      const parsed = await shp(arrayBuffer)
-      const targetGeoJson = Array.isArray(parsed) ? parsed[0] : parsed
-      if (targetGeoJson) {
-        points = parseGeoJsonAoi(targetGeoJson)
-      }
-    } else if (isShp) {
-      const parseShpFn = shpModule.parseShp || shp?.parseShp
-      if (typeof parseShpFn === 'function') {
-        const geometries = parseShpFn(arrayBuffer)
-        if (Array.isArray(geometries) && geometries.length > 0) {
-          for (const geom of geometries) {
-            if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
-              points = parseGeoJsonAoi({ type: 'Feature', geometry: geom })
-              break
-            }
-          }
-        }
-      }
-    }
-
-    if (points && isValidLatLngPoints(points)) {
-      return points
-    }
-  } catch (clientErr) {
-    console.warn('Parsing shapefile di browser belum berhasil, beralih ke backend GeoPandas:', clientErr)
-  }
-
-  // Tingkat 2: Fallback ke backend FastAPI GeoPandas (mendukung reproyeksi UTM akurat & restorasi SHX)
+  // Menggunakan layanan backend FastAPI GeoPandas (GDAL + PyOGRIO).
+  // Keunggulan: Otomatis mendeteksi dan mereproyeksi CRS (misal UTM Zone 48S/50S) ke WGS84,
+  // mengekstrak arsip ZIP, memulihkan file SHX jika hilang, dan tidak bergantung pada pustaka node_modules lokal.
   return await parseShapefileViaBackend(file)
 }
 
