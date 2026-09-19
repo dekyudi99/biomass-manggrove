@@ -374,8 +374,9 @@ export const translations = {
     noBandsSelectedWarning: 'Pilih minimal 1 band spektral sebelum melanjutkan.',
 
     // Upload AOI, Edit ROI & Export Data
-    uploadAoiBtn: 'Upload File AOI (GeoJSON / CSV)',
-    uploadAoiHint: 'Unggah file .geojson, .json, atau .csv berisi titik koordinat poligon batas wilayah',
+    uploadAoiBtn: 'Upload File AOI (GeoJSON / CSV / SHP)',
+    uploadAoiHint: 'Unggah file .geojson, .json, .csv, atau .zip/.shp (Shapefile) berisi titik koordinat poligon batas wilayah',
+    readingAoiFile: 'Membaca dan memproses berkas AOI...',
     aoiUploadSuccess: 'Area poligon berhasil dimuat dari berkas!',
     aoiUploadFailed: 'Gagal membaca berkas AOI',
     editRoiBtn: 'Edit ROI di Peta',
@@ -776,8 +777,9 @@ export const translations = {
     noBandsSelectedWarning: 'Please select at least 1 spectral band before proceeding.',
 
     // Upload AOI, Edit ROI & Export Data
-    uploadAoiBtn: 'Upload AOI File (GeoJSON / CSV)',
-    uploadAoiHint: 'Upload .geojson, .json, or .csv containing boundary polygon coordinates',
+    uploadAoiBtn: 'Upload AOI File (GeoJSON / CSV / SHP)',
+    uploadAoiHint: 'Upload .geojson, .json, .csv, or .zip/.shp (Shapefile) containing boundary polygon coordinates',
+    readingAoiFile: 'Reading and processing AOI file...',
     aoiUploadSuccess: 'Polygon area successfully loaded from file!',
     aoiUploadFailed: 'Failed to read AOI file',
     editRoiBtn: 'Edit ROI on Map',
@@ -1178,8 +1180,9 @@ export const translations = {
     noBandsSelectedWarning: 'โปรดเลือกอย่างน้อย 1 แถบสเปกตรัมก่อนดำเนินการต่อ',
 
     // อัปโหลด AOI แก้ไข ROI และส่งออกข้อมูล
-    uploadAoiBtn: 'อัปโหลดไฟล์ AOI (GeoJSON / CSV)',
-    uploadAoiHint: 'อัปโหลด .geojson, .json หรือ .csv ที่มีพิกัดรูปหลายเหลี่ยมขอบเขตพื้นที่',
+    uploadAoiBtn: 'อัปโหลดไฟล์ AOI (GeoJSON / CSV / SHP)',
+    uploadAoiHint: 'อัปโหลด .geojson, .json, .csv หรือ .zip/.shp (Shapefile) ที่มีพิกัดรูปหลายเหลี่ยมขอบเขตพื้นที่',
+    readingAoiFile: 'กำลังอ่านและประมวลผลไฟล์ AOI...',
     aoiUploadSuccess: 'โหลดพื้นที่รูปหลายเหลี่ยมจากไฟล์สำเร็จแล้ว!',
     aoiUploadFailed: 'ไม่สามารถอ่านไฟล์ AOI ได้',
     editRoiBtn: 'แก้ไข ROI บนแผนที่',

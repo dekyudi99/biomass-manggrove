@@ -1,6 +1,8 @@
+import axiosClient from '../api/AxiosClient'
+
 /**
  * Utilitas untuk Parsing & Ekspor Berkas AOI (Area of Interest)
- * Mendukung GeoJSON (.geojson, .json) dan CSV (.csv)
+ * Mendukung GeoJSON (.geojson, .json), CSV (.csv), dan Shapefile (.zip, .shp)
  */
 
 // ── 1. PARSER GEOJSON ────────────────────────────────────────────────────────
@@ -144,7 +146,89 @@ export function parseCsvAoi(csvText) {
   return points
 }
 
-// ── 3. EKSPOR KE GEOJSON ─────────────────────────────────────────────────────
+// ── 3. PARSER SHAPEFILE (.ZIP / .SHP) ─────────────────────────────────────────
+function isValidLatLngPoints(points) {
+  if (!Array.isArray(points) || points.length < 3) return false
+  return points.every(
+    ([lat, lng]) =>
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      !isNaN(lat) &&
+      !isNaN(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+  )
+}
+
+export async function parseShapefileViaBackend(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await axiosClient.post('/parse-shapefile', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  if (res.data && res.data.points && res.data.points.length >= 3) {
+    return res.data.points
+  }
+  throw new Error(res.data?.detail || 'Gagal mengekstrak koordinat dari berkas Shapefile.')
+}
+
+export async function parseShapefileAoi(file) {
+  if (!file) {
+    throw new Error('Berkas Shapefile tidak ditemukan.')
+  }
+
+  const name = file.name.toLowerCase()
+  const isZip = name.endsWith('.zip')
+  const isShp = name.endsWith('.shp')
+
+  if (!isZip && !isShp) {
+    throw new Error('Format berkas tidak didukung. Harap unggah berkas .zip atau .shp.')
+  }
+
+  // Tingkat 1: Coba parsing cepat langsung di memori browser dengan shpjs
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const shpModule = await import('shpjs')
+    const shp = shpModule.default || shpModule
+
+    let points = null
+
+    if (isZip) {
+      // shpjs secara otomatis membaca berkas .shp, .prj, .dbf di dalam ZIP dan mereproyeksi ke WGS84
+      const parsed = await shp(arrayBuffer)
+      const targetGeoJson = Array.isArray(parsed) ? parsed[0] : parsed
+      if (targetGeoJson) {
+        points = parseGeoJsonAoi(targetGeoJson)
+      }
+    } else if (isShp) {
+      const parseShpFn = shpModule.parseShp || shp?.parseShp
+      if (typeof parseShpFn === 'function') {
+        const geometries = parseShpFn(arrayBuffer)
+        if (Array.isArray(geometries) && geometries.length > 0) {
+          for (const geom of geometries) {
+            if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
+              points = parseGeoJsonAoi({ type: 'Feature', geometry: geom })
+              break
+            }
+          }
+        }
+      }
+    }
+
+    if (points && isValidLatLngPoints(points)) {
+      return points
+    }
+  } catch (clientErr) {
+    console.warn('Parsing shapefile di browser belum berhasil, beralih ke backend GeoPandas:', clientErr)
+  }
+
+  // Tingkat 2: Fallback ke backend FastAPI GeoPandas (mendukung reproyeksi UTM akurat & restorasi SHX)
+  return await parseShapefileViaBackend(file)
+}
+
+// ── 4. EKSPOR KE GEOJSON ─────────────────────────────────────────────────────
 export function exportAoiToGeoJson(points, areaHectares = 0, customName = 'Mangrove_AOI') {
   if (!points || points.length < 3) return null
 

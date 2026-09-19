@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { message } from 'antd'
 import { useLanguage } from '../context/LanguageContext'
-import { parseGeoJsonAoi, parseCsvAoi } from '../utils/aoiParser'
+import { parseGeoJsonAoi, parseCsvAoi, parseShapefileAoi } from '../utils/aoiParser'
 
 const Sidebar = ({
   mode,
@@ -52,47 +52,57 @@ const Sidebar = ({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Handler Upload Berkas AOI (GeoJSON / CSV)
-  const handleFileSelect = (e) => {
+  // Handler Upload Berkas AOI (GeoJSON / CSV / Shapefile)
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result
-        let points = []
-        const name = file.name.toLowerCase()
+    const hideLoading = message.loading(t('readingAoiFile') || 'Membaca dan memproses berkas AOI...', 0)
+    try {
+      let points = []
+      const name = file.name.toLowerCase()
 
-        if (name.endsWith('.geojson') || name.endsWith('.json')) {
-          points = parseGeoJsonAoi(content)
-        } else if (name.endsWith('.csv')) {
-          points = parseCsvAoi(content)
-        } else {
+      if (name.endsWith('.geojson') || name.endsWith('.json')) {
+        const text = await file.text()
+        points = parseGeoJsonAoi(text)
+      } else if (name.endsWith('.csv')) {
+        const text = await file.text()
+        points = parseCsvAoi(text)
+      } else if (name.endsWith('.zip') || name.endsWith('.shp')) {
+        points = await parseShapefileAoi(file)
+      } else {
+        // Deteksi format alternatif
+        try {
+          const text = await file.text()
+          points = parseGeoJsonAoi(text)
+        } catch {
           try {
-            points = parseGeoJsonAoi(content)
+            const text = await file.text()
+            points = parseCsvAoi(text)
           } catch {
-            points = parseCsvAoi(content)
+            points = await parseShapefileAoi(file)
           }
         }
+      }
 
-        if (!points || points.length < 3) {
-          message.error('File poligon harus memiliki minimal 3 titik koordinat.')
-          return
-        }
+      if (!points || points.length < 3) {
+        message.error('File poligon harus memiliki minimal 3 titik koordinat.')
+        return
+      }
 
-        if (onUploadAoi) {
-          onUploadAoi(points)
-        }
-      } catch (err) {
-        message.error(`${t('aoiUploadFailed')}: ${err.message}`)
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
+      if (onUploadAoi) {
+        onUploadAoi(points)
+      }
+      message.success(t('aoiUploadSuccess'))
+    } catch (err) {
+      const errMsg = err?.response?.data?.detail || err?.message || 'Terjadi kesalahan saat membaca berkas AOI.'
+      message.error(`${t('aoiUploadFailed')}: ${errMsg}`)
+    } finally {
+      hideLoading()
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
       }
     }
-    reader.readAsText(file)
   }
 
   const handleUndoPoint = () => {
@@ -256,12 +266,12 @@ const Sidebar = ({
                 )}
               </div>
 
-              {/* Upload AOI (GeoJSON / CSV) */}
+              {/* Upload AOI (GeoJSON / CSV / Shapefile) */}
               <div>
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept=".geojson,.json,.csv"
+                  accept=".geojson,.json,.csv,.zip,.shp"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
