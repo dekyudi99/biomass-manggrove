@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, Query, Body, Response, HTTPException
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import tempfile
 import os
 import zipfile
@@ -134,57 +134,70 @@ async def delete_layer_group(group_id: int):
 # --- SHAPEFILE AOI PARSER ---
 
 @router.post("/parse-shapefile")
-async def parse_shapefile(file: UploadFile = File(...)):
+async def parse_shapefile(
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+):
     """
-    Mengekstrak koordinat poligon AOI dari berkas Shapefile (.zip atau .shp).
+    Mengekstrak koordinat poligon AOI dari berkas Shapefile (.zip, .shp, atau multi-select .shp + .prj + .shx + .dbf).
     Mendukung deteksi otomatis CRS dan reproyeksi ke EPSG:4326 (WGS84).
     Mengembalikan format koordinat Leaflet [[lat, lng], ...].
     """
-    filename = file.filename or ""
-    lower_name = filename.lower()
-    if not (lower_name.endswith(".zip") or lower_name.endswith(".shp")):
-        raise HTTPException(
-            status_code=400,
-            detail="Berkas harus berupa arsip Shapefile (.zip) atau berkas Shapefile (.shp)",
-        )
+    upload_list: List[UploadFile] = []
+    if files:
+        upload_list.extend(files)
+    if file and file not in upload_list:
+        upload_list.append(file)
 
-    file_bytes = await file.read()
-    if not file_bytes:
-        raise HTTPException(status_code=400, detail="Berkas yang diunggah kosong.")
+    if not upload_list:
+        raise HTTPException(status_code=400, detail="Tidak ada berkas yang diunggah.")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        target_shp_path = None
+        saved_files = []
+        for uf in upload_list:
+            fname = os.path.basename(uf.filename or "uploaded")
+            fbytes = await uf.read()
+            if not fbytes:
+                continue
+            save_path = os.path.join(tmpdir, fname)
+            with open(save_path, "wb") as f:
+                f.write(fbytes)
+            saved_files.append((fname, save_path))
 
-        if lower_name.endswith(".zip"):
-            zip_path = os.path.join(tmpdir, "uploaded.zip")
-            with open(zip_path, "wb") as f:
-                f.write(file_bytes)
+        if not saved_files:
+            raise HTTPException(status_code=400, detail="Berkas yang diunggah kosong.")
 
-            extract_dir = os.path.join(tmpdir, "extracted")
-            os.makedirs(extract_dir, exist_ok=True)
-            try:
-                with zipfile.ZipFile(zip_path, "r") as zf:
-                    zf.extractall(extract_dir)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Gagal mengekstrak berkas ZIP: {str(e)}")
+        # Jika terdapat berkas .zip, ekstrak seluruh isinya
+        for fname, save_path in saved_files:
+            if fname.lower().endswith(".zip"):
+                extract_dir = os.path.join(tmpdir, "extracted")
+                os.makedirs(extract_dir, exist_ok=True)
+                try:
+                    with zipfile.ZipFile(save_path, "r") as zf:
+                        zf.extractall(extract_dir)
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Gagal mengekstrak berkas ZIP: {str(e)}")
 
-            # Cari file .shp di dalam direktori hasil ekstrak
-            for root, _, files in os.walk(extract_dir):
-                for f in files:
-                    if f.lower().endswith(".shp"):
-                        target_shp_path = os.path.join(root, f)
-                        break
-                if target_shp_path:
-                    break
+        # Cari semua berkas .shp di dalam tmpdir dan subdirektori
+        shp_candidates = []
+        for root, _, flist in os.walk(tmpdir):
+            for f in flist:
+                if f.lower().endswith(".shp"):
+                    shp_candidates.append(os.path.join(root, f))
 
-            if not target_shp_path:
-                raise HTTPException(status_code=400, detail="Berkas ZIP tidak memuat berkas komponen Shapefile (.shp).")
+        if not shp_candidates:
+            raise HTTPException(
+                status_code=400,
+                detail="Tidak ditemukan berkas Shapefile (.shp) di antara berkas yang diunggah.",
+            )
 
-        else:
-            # Standalone .shp
-            target_shp_path = os.path.join(tmpdir, "uploaded.shp")
-            with open(target_shp_path, "wb") as f:
-                f.write(file_bytes)
+        # Prioritaskan file .shp yang memiliki file .prj pasangan di folder yang sama
+        target_shp_path = shp_candidates[0]
+        for candidate in shp_candidates:
+            base_no_ext = os.path.splitext(candidate)[0]
+            if os.path.exists(base_no_ext + ".prj") or os.path.exists(base_no_ext + ".PRJ"):
+                target_shp_path = candidate
+                break
 
         # Buka dengan GeoPandas (utamakan pyogrio dengan auto restore SHX)
         try:
@@ -261,14 +274,16 @@ async def parse_shapefile(file: UploadFile = File(...)):
                 status_code=400,
                 detail=(
                     "Koordinat poligon terdeteksi menggunakan sistem terproyeksi (seperti UTM) tanpa metadata proyeksi (.prj). "
-                    "Harap unggah seluruh komponen Shapefile (.shp, .shx, .dbf, .prj) yang dikompresi ke dalam satu file .zip "
-                    "agar dapat direproyeksi secara otomatis ke koordinat WGS84."
+                    "Harap unggah berkas .prj bersamaan dengan berkas .shp (bisa multi-select pilih .shp dan .prj sekaligus) "
+                    "atau kompresi ke dalam satu file .zip agar dapat direproyeksi secara otomatis ke koordinat WGS84."
                 )
             )
 
+        display_name = os.path.basename(target_shp_path)
+
         return {
             "success": True,
-            "filename": filename,
+            "filename": display_name,
             "points": points,
             "count": len(points),
             "source_crs": source_crs,

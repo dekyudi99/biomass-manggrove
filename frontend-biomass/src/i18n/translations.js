@@ -375,7 +375,7 @@ export const translations = {
 
     // Upload AOI, Edit ROI & Export Data
     uploadAoiBtn: 'Upload File AOI (GeoJSON / CSV / SHP)',
-    uploadAoiHint: 'Unggah file .geojson, .json, .csv, atau .zip/.shp (Shapefile) berisi titik koordinat poligon batas wilayah',
+    uploadAoiHint: 'Unggah file .geojson, .json, .csv, atau .zip/.shp (bisa pilih sekaligus beberapa file .shp dan .prj)',
     readingAoiFile: 'Membaca dan memproses berkas AOI...',
     aoiUploadSuccess: 'Area poligon berhasil dimuat dari berkas!',
     aoiUploadFailed: 'Gagal membaca berkas AOI',
@@ -778,7 +778,7 @@ export const translations = {
 
     // Upload AOI, Edit ROI & Export Data
     uploadAoiBtn: 'Upload AOI File (GeoJSON / CSV / SHP)',
-    uploadAoiHint: 'Upload .geojson, .json, .csv, or .zip/.shp (Shapefile) containing boundary polygon coordinates',
+    uploadAoiHint: 'Upload .geojson, .json, .csv, or .zip/.shp (multi-select .shp and .prj files supported)',
     readingAoiFile: 'Reading and processing AOI file...',
     aoiUploadSuccess: 'Polygon area successfully loaded from file!',
     aoiUploadFailed: 'Failed to read AOI file',
@@ -1181,7 +1181,7 @@ export const translations = {
 
     // อัปโหลด AOI แก้ไข ROI และส่งออกข้อมูล
     uploadAoiBtn: 'อัปโหลดไฟล์ AOI (GeoJSON / CSV / SHP)',
-    uploadAoiHint: 'อัปโหลด .geojson, .json, .csv หรือ .zip/.shp (Shapefile) ที่มีพิกัดรูปหลายเหลี่ยมขอบเขตพื้นที่',
+    uploadAoiHint: 'อัปโหลด .geojson, .json, .csv หรือ .zip/.shp (สามารถเลือกหลายไฟล์พร้อมกันทั้ง .shp และ .prj)',
     readingAoiFile: 'กำลังอ่านและประมวลผลไฟล์ AOI...',
     aoiUploadSuccess: 'โหลดพื้นที่รูปหลายเหลี่ยมจากไฟล์สำเร็จแล้ว!',
     aoiUploadFailed: 'ไม่สามารถอ่านไฟล์ AOI ได้',

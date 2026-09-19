@@ -146,10 +146,22 @@ export function parseCsvAoi(csvText) {
   return points
 }
 
-// ── 3. PARSER SHAPEFILE (.ZIP / .SHP) ─────────────────────────────────────────
-export async function parseShapefileViaBackend(file) {
+// ── 3. PARSER SHAPEFILE (.ZIP / .SHP / MULTI-SELECT .SHP + .PRJ) ─────────────
+export async function parseShapefileViaBackend(fileOrFiles) {
+  const fileList = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles]
+  if (fileList.length === 0) {
+    throw new Error('Berkas Shapefile tidak ditemukan.')
+  }
+
   const formData = new FormData()
-  formData.append('file', file)
+  for (const f of fileList) {
+    formData.append('files', f)
+  }
+  // Sertakan 'file' untuk kompatibilitas jika hanya satu berkas
+  if (fileList.length === 1) {
+    formData.append('file', fileList[0])
+  }
+
   const res = await axiosClient.post('/parse-shapefile', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
@@ -159,23 +171,28 @@ export async function parseShapefileViaBackend(file) {
   throw new Error(res.data?.detail || 'Gagal mengekstrak koordinat dari berkas Shapefile.')
 }
 
-export async function parseShapefileAoi(file) {
-  if (!file) {
+export async function parseShapefileAoi(fileOrFiles) {
+  const fileList = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles]
+  if (!fileList || fileList.length === 0) {
     throw new Error('Berkas Shapefile tidak ditemukan.')
   }
 
-  const name = file.name.toLowerCase()
-  const isZip = name.endsWith('.zip')
-  const isShp = name.endsWith('.shp')
+  // Periksa apakah terdapat berkas .shp atau .zip di antara berkas yang dipilih
+  const hasShpOrZip = fileList.some((f) => {
+    const n = f.name.toLowerCase()
+    return n.endsWith('.shp') || n.endsWith('.zip')
+  })
 
-  if (!isZip && !isShp) {
-    throw new Error('Format berkas tidak didukung. Harap unggah berkas .zip atau .shp.')
+  if (!hasShpOrZip) {
+    throw new Error(
+      'Tidak ditemukan berkas .shp atau .zip di antara berkas yang dipilih. Pastikan menyertakan berkas berekstensi .shp (dan .prj).'
+    )
   }
 
   // Menggunakan layanan backend FastAPI GeoPandas (GDAL + PyOGRIO).
   // Keunggulan: Otomatis mendeteksi dan mereproyeksi CRS (misal UTM Zone 48S/50S) ke WGS84,
-  // mengekstrak arsip ZIP, memulihkan file SHX jika hilang, dan tidak bergantung pada pustaka node_modules lokal.
-  return await parseShapefileViaBackend(file)
+  // mengekstrak arsip ZIP atau menggabungkan berkas multi-select (.shp + .prj + .shx + .dbf).
+  return await parseShapefileViaBackend(fileList)
 }
 
 // ── 4. EKSPOR KE GEOJSON ─────────────────────────────────────────────────────

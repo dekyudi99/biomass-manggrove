@@ -52,37 +52,44 @@ const Sidebar = ({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Handler Upload Berkas AOI (GeoJSON / CSV / Shapefile)
+  // Handler Upload Berkas AOI (GeoJSON / CSV / Shapefile / Multi-select)
   const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const fileList = Array.from(e.target.files || [])
+    if (fileList.length === 0) return
 
     const hideLoading = message.loading(t('readingAoiFile') || 'Membaca dan memproses berkas AOI...', 0)
     try {
       let points = []
-      const name = file.name.toLowerCase()
 
-      if (name.endsWith('.geojson') || name.endsWith('.json')) {
-        const text = await file.text()
-        points = parseGeoJsonAoi(text)
-      } else if (name.endsWith('.csv')) {
-        const text = await file.text()
-        points = parseCsvAoi(text)
-      } else if (name.endsWith('.zip') || name.endsWith('.shp')) {
-        points = await parseShapefileAoi(file)
-      } else {
-        // Deteksi format alternatif
-        try {
-          const text = await file.text()
+      if (fileList.length === 1) {
+        const singleFile = fileList[0]
+        const name = singleFile.name.toLowerCase()
+
+        if (name.endsWith('.geojson') || name.endsWith('.json')) {
+          const text = await singleFile.text()
           points = parseGeoJsonAoi(text)
-        } catch {
+        } else if (name.endsWith('.csv')) {
+          const text = await singleFile.text()
+          points = parseCsvAoi(text)
+        } else if (name.endsWith('.zip') || name.endsWith('.shp')) {
+          points = await parseShapefileAoi(singleFile)
+        } else {
+          // Deteksi format alternatif
           try {
-            const text = await file.text()
-            points = parseCsvAoi(text)
+            const text = await singleFile.text()
+            points = parseGeoJsonAoi(text)
           } catch {
-            points = await parseShapefileAoi(file)
+            try {
+              const text = await singleFile.text()
+              points = parseCsvAoi(text)
+            } catch {
+              points = await parseShapefileAoi(singleFile)
+            }
           }
         }
+      } else {
+        // Multi-select files: pengguna memilih beberapa file sekaligus (misal: .shp dan .prj)
+        points = await parseShapefileAoi(fileList)
       }
 
       if (!points || points.length < 3) {
@@ -266,12 +273,13 @@ const Sidebar = ({
                 )}
               </div>
 
-              {/* Upload AOI (GeoJSON / CSV / Shapefile) */}
+              {/* Upload AOI (GeoJSON / CSV / Shapefile - Multi-select) */}
               <div>
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept=".geojson,.json,.csv,.zip,.shp"
+                  multiple
+                  accept=".geojson,.json,.csv,.zip,.shp,.shx,.dbf,.prj"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
