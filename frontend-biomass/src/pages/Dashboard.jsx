@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { message } from 'antd'
 import {
   MapContainer,
   TileLayer,
@@ -338,7 +339,15 @@ const Dashboard = () => {
         onOpenDatasetExtractor={() => setIsDatasetExtractorOpen(true)}
         onUploadAoi={handleAoiUploaded}
         isEditingRoi={isEditingRoi}
-        onToggleEditRoi={() => setIsEditingRoi((prev) => !prev)}
+        onToggleEditRoi={() => {
+          if (!isEditingRoi && areaPoints.length > 150) {
+            message.warning(
+              'Poligon memiliki lebih dari 150 titik sudut. Mode edit per-titik dinonaktifkan demi kelancaran browser.'
+            )
+            return
+          }
+          setIsEditingRoi((prev) => !prev)
+        }}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         isAoiVisible={isAoiVisible}
         onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
@@ -569,8 +578,8 @@ const Dashboard = () => {
         {/* MODE EDIT ROI: Render Marker Interaktif yang Dapat Digeser (Draggable) */}
         {isEditingRoi && isAreaClosed && (
           <>
-            {/* 1. Marker Titik Sudut Utama (Draggable) */}
-            {areaPoints.map((point, idx) => (
+            {/* 1. Marker Titik Sudut Utama (Draggable) - Dibatasi maksimal 150 titik */}
+            {areaPoints.length <= 150 && areaPoints.map((point, idx) => (
               <Marker
                 key={`edit-vertex-${idx}`}
                 position={point}
@@ -635,8 +644,8 @@ const Dashboard = () => {
               </Marker>
             ))}
 
-            {/* 2. Marker Midpoint Virtual (Klik untuk menambah titik baru di tengah sisi) */}
-            {areaPoints.length >= 3 && areaPoints.map((point, idx) => {
+            {/* 2. Marker Midpoint Virtual - Hanya dirender jika titik <= 60 agar peta tetap responsif */}
+            {areaPoints.length >= 3 && areaPoints.length <= 60 && areaPoints.map((point, idx) => {
               const nextPoint = areaPoints[(idx + 1) % areaPoints.length]
               const midLat = (point[0] + nextPoint[0]) / 2
               const midLng = (point[1] + nextPoint[1]) / 2

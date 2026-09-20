@@ -257,20 +257,47 @@ async def parse_shapefile(
                 detail=f"Tipe geometri '{union_geom.geom_type}' tidak dapat digunakan sebagai AOI (harus bertipe Polygon/MultiPolygon)."
             )
 
-        # Jika jumlah titik sangat banyak (> 1000 titik), lakukan simplifikasi geometri adaptif
-        # agar ringan seperti di QGIS dan tidak membuat browser/Leaflet lag atau freeze
+        # Optimasi Performa Geospasial:
+        # Batasi jumlah titik poligon (maksimal ~200 titik) agar sangat ringan
+        # saat dimuat di Leaflet, diedit di browser, dan dikirim ke Google Earth Engine.
+        MAX_TARGET_POINTS = 200
         initial_coords = list(poly.exterior.coords)
-        if len(initial_coords) > 1000:
+        original_count = len(initial_coords)
+
+        if original_count > MAX_TARGET_POINTS:
             minx, miny, maxx, maxy = poly.bounds
             span = max(maxx - minx, maxy - miny)
-            # Toleransi Douglas-Peucker adaptif (~0.05% dari dimensi poligon, maks ~50 meter)
-            tolerance = min(max(span * 0.0005, 0.0001), 0.005)
-            try:
-                simplified = poly.simplify(tolerance, preserve_topology=True)
-                if simplified.geom_type == "Polygon" and len(simplified.exterior.coords) >= 3:
-                    poly = simplified
-            except Exception:
-                pass
+            # Mulai dari toleransi awal adaptif
+            current_tol = max(span * 0.0005, 0.00005)
+
+            # Lakukan penyederhanaan adaptif bertahap menggunakan algoritma Douglas-Peucker
+            for _ in range(8):
+                try:
+                    simplified = poly.simplify(current_tol, preserve_topology=True)
+                    if simplified.geom_type == "Polygon" and len(simplified.exterior.coords) >= 4:
+                        poly = simplified
+                    elif simplified.geom_type == "MultiPolygon" and len(simplified.geoms) > 0:
+                        poly = max(simplified.geoms, key=lambda p: p.area)
+
+                    if len(poly.exterior.coords) <= MAX_TARGET_POINTS:
+                        break
+                    current_tol *= 1.8  # Tingkatkan toleransi secara bertahap
+                except Exception:
+                    break
+
+            # Pengaman fallback: Jika masih di atas MAX_TARGET_POINTS (misal garis fraktal sangat rapat),
+            # lakukan downsampling titik berjarak teratur dengan menjaga ring tertutup
+            curr_coords = list(poly.exterior.coords)
+            if len(curr_coords) > MAX_TARGET_POINTS:
+                step = max(1, len(curr_coords) // MAX_TARGET_POINTS)
+                downsampled = curr_coords[::step]
+                if downsampled[0] != downsampled[-1]:
+                    downsampled.append(downsampled[0])
+                if len(downsampled) >= 4:
+                    from shapely.geometry import Polygon as SPoly
+                    test_poly = SPoly(downsampled)
+                    if test_poly.is_valid and test_poly.area > 0:
+                        poly = test_poly
 
         raw_coords = list(poly.exterior.coords)
         if len(raw_coords) < 3:
@@ -306,6 +333,7 @@ async def parse_shapefile(
             "filename": display_name,
             "points": points,
             "count": len(points),
+            "original_count": original_count,
             "source_crs": source_crs,
         }
 

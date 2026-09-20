@@ -100,7 +100,13 @@ const Sidebar = ({
       if (onUploadAoi) {
         onUploadAoi(points)
       }
-      message.success(t('aoiUploadSuccess'))
+      if (points.originalCount && points.originalCount > points.length) {
+        message.success(
+          `Area poligon berhasil dimuat (${points.length} titik, dioptimasi otomatis dari ${points.originalCount} titik agar ringan).`
+        )
+      } else {
+        message.success(t('aoiUploadSuccess'))
+      }
     } catch (err) {
       const errMsg = err?.response?.data?.detail || err?.message || 'Terjadi kesalahan saat membaca berkas AOI.'
       message.error(`${t('aoiUploadFailed')}: ${errMsg}`)

@@ -51,7 +51,18 @@ export function parseGeoJsonAoi(jsonContent) {
     leafletPoints.pop()
   }
 
-  return leafletPoints
+  // Optimasi performa: Jika GeoJSON memiliki titik sangat banyak (> 200),
+  // lakukan downsampling cerdas agar rendering di browser dan GEE tetap ringan
+  const originalLen = leafletPoints.length
+  let finalPoints = leafletPoints
+  if (originalLen > 200) {
+    const step = Math.ceil(originalLen / 200)
+    finalPoints = leafletPoints.filter((_, idx) => idx % step === 0)
+    finalPoints.originalCount = originalLen
+    finalPoints.simplifiedCount = finalPoints.length
+  }
+
+  return finalPoints
 }
 
 function extractCoordsFromGeometry(geom) {
@@ -143,7 +154,17 @@ export function parseCsvAoi(csvText) {
     points.pop()
   }
 
-  return points
+  // Optimasi performa CSV jika titik > 200
+  const originalCsvLen = points.length
+  let finalCsvPoints = points
+  if (originalCsvLen > 200) {
+    const step = Math.ceil(originalCsvLen / 200)
+    finalCsvPoints = points.filter((_, idx) => idx % step === 0)
+    finalCsvPoints.originalCount = originalCsvLen
+    finalCsvPoints.simplifiedCount = finalCsvPoints.length
+  }
+
+  return finalCsvPoints
 }
 
 // ── 3. PARSER SHAPEFILE (.ZIP / .SHP / MULTI-SELECT .SHP + .PRJ) ─────────────
@@ -166,7 +187,10 @@ export async function parseShapefileViaBackend(fileOrFiles) {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   if (res.data && res.data.points && res.data.points.length >= 3) {
-    return res.data.points
+    const pts = res.data.points
+    pts.originalCount = res.data.original_count || pts.length
+    pts.simplifiedCount = res.data.count || pts.length
+    return pts
   }
   throw new Error(res.data?.detail || 'Gagal mengekstrak koordinat dari berkas Shapefile.')
 }
