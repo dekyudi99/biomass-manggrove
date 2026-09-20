@@ -16,17 +16,17 @@ import {
   DownloadOutlined,
   EyeOutlined,
   CopyOutlined,
-  CloudUploadOutlined,
   CheckCircleOutlined,
   CalendarOutlined,
   FileTextOutlined,
   CodeOutlined,
   SlidersOutlined,
+  TableOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useLanguage } from '../context/LanguageContext'
 import geeApi from '../api/GeeApi'
-import workspaceApi from '../api/WorkspaceApi'
+import { triggerBrowserDownload } from '../utils/aoiParser'
 
 const { RangePicker } = DatePicker
 
@@ -62,22 +62,10 @@ const GeeDatasetExtractorModal = ({
   const [datasetResult, setDatasetResult] = useState(null)
   const [isCodeModalVisible, setIsCodeModalVisible] = useState(false)
 
-  // State Simpan ke AstraGIS
-  const [workspaces, setWorkspaces] = useState([])
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
-  const [layerName, setLayerName] = useState('')
-  const [layerDescription, setLayerDescription] = useState('')
-  const [isSavingAstraGis, setIsSavingAstraGis] = useState(false)
-
   // Load katalog satelit saat komponen dibuka
   useEffect(() => {
     if (isOpen) {
-      const nowStr = dayjs().format('YYYYMMDD')
-      if (!layerName) {
-        setLayerName(`${selectedSatelliteId.toUpperCase()}_Dataset_${nowStr}`)
-      }
       loadSatellites()
-      loadWorkspaces()
     }
   }, [isOpen, selectedSatelliteId])
 
@@ -89,19 +77,6 @@ const GeeDatasetExtractorModal = ({
       }
     } catch (err) {
       console.warn('Gagal memuat katalog satelit:', err)
-    }
-  }
-
-  const loadWorkspaces = async () => {
-    try {
-      const res = await workspaceApi.getAll()
-      const wsList = res.data?.data || res.data || []
-      setWorkspaces(wsList)
-      if (wsList.length > 0 && !selectedWorkspaceId) {
-        setSelectedWorkspaceId(wsList[0].id)
-      }
-    } catch (err) {
-      console.warn('Gagal memuat workspace AstraGIS:', err)
     }
   }
 
@@ -124,8 +99,6 @@ const GeeDatasetExtractorModal = ({
     const target = satellites.find((s) => s.id === satId)
     if (target) {
       setSelectedBands(target.default_rgb || target.bands.slice(0, 3).map((b) => b.id))
-      const nowStr = dayjs().format('YYYYMMDD')
-      setLayerName(`${satId.toUpperCase()}_DATASET_${nowStr}`)
     }
   }
 
@@ -219,7 +192,6 @@ const GeeDatasetExtractorModal = ({
         cloud_percentage: cloudPct,
         composite_method: compositeMethod,
         orbit_pass: orbitPass,
-        custom_name: layerName || undefined,
       }
 
       const res = await geeApi.getDatasetDownloadUrl(payload)
@@ -230,6 +202,144 @@ const GeeDatasetExtractorModal = ({
     } finally {
       setIsExporting(false)
     }
+  }
+
+  // Unduh Berkas GeoJSON Akurat (Poligon AOI + Titik Sampel Spektral GEE)
+  const handleDownloadGeoJson = () => {
+    if (!areaPoints || areaPoints.length < 3) {
+      message.error('Area poligon tidak valid.')
+      return
+    }
+    const cleanName = datasetResult?.dataset_name || 'Satellite_Dataset'
+    const satelliteName = datasetResult?.manifest?.satellite_name || selectedSatelliteId
+    const chosenBands = datasetResult?.bands || selectedBands
+    const bandStats = datasetResult?.band_statistics || {}
+    const pixelSamples = datasetResult?.pixel_samples || []
+
+    // Leaflet [lat, lng] -> GeoJSON [lng, lat]
+    const ring = areaPoints.map((p) => [Number(p[1]), Number(p[0])])
+    if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
+      ring.push([ring[0][0], ring[0][1]])
+    }
+
+    const features = [
+      // Feature 1: Poligon Batas Area (AOI) dengan Statistik Zonasi GEE
+      {
+        type: 'Feature',
+        id: 'aoi_boundary',
+        properties: {
+          feature_type: 'aoi_boundary',
+          dataset_name: cleanName,
+          satellite: satelliteName,
+          bands: chosenBands,
+          start_date: dateRange[0].format('YYYY-MM-DD'),
+          end_date: dateRange[1].format('YYYY-MM-DD'),
+          area_hectares: Number(datasetResult?.area_hectares ?? areaHectares.toFixed(2)),
+          spatial_resolution_meters: Number(datasetResult?.spatial_resolution_meters || 10),
+          composite_method: compositeMethod,
+          cloud_percentage_threshold: Number(cloudPct),
+          band_statistics_gee: bandStats,
+          sample_points_count: pixelSamples.length,
+          geotiff_download_url: datasetResult?.download_url || '',
+          created_at: new Date().toISOString(),
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [ring],
+        },
+      },
+    ]
+
+    // Feature 2..N: Titik-Titik Piksel Sampel Spektral Nyata dari GEE
+    pixelSamples.forEach((sample) => {
+      features.push({
+        type: 'Feature',
+        id: `pixel_sample_${sample.id}`,
+        properties: {
+          feature_type: 'pixel_sample',
+          sample_id: Number(sample.id),
+          latitude: Number(sample.latitude),
+          longitude: Number(sample.longitude),
+          ...sample.band_values, // Nilai reflektansi tiap band (float murni)
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: [Number(sample.longitude), Number(sample.latitude)],
+        },
+      })
+    })
+
+    const geojson = {
+      type: 'FeatureCollection',
+      name: cleanName,
+      crs: {
+        type: 'name',
+        properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' },
+      },
+      features,
+    }
+
+    triggerBrowserDownload(JSON.stringify(geojson, null, 2), `${cleanName}_gee_dataset.geojson`, 'application/geo+json')
+    message.success('Berkas GeoJSON dataset GEE berhasil diunduh!')
+  }
+
+  // Unduh Berkas CSV Akurat (Nilai Piksel Spektral GEE & Statistik Ringkasan)
+  const handleDownloadCsv = () => {
+    if (!areaPoints || areaPoints.length < 3) {
+      message.error('Area poligon tidak valid.')
+      return
+    }
+    const cleanName = datasetResult?.dataset_name || 'Satellite_Dataset'
+    const chosenBands = datasetResult?.bands || selectedBands
+    const pixelSamples = datasetResult?.pixel_samples || []
+    const bandStats = datasetResult?.band_statistics || {}
+
+    // 1. Header Tabel CSV Standar Ilmiah (RFC 4180)
+    const headers = ['sample_id', 'latitude', 'longitude', ...chosenBands]
+    const lines = [headers.join(',')]
+
+    if (pixelSamples.length > 0) {
+      // 2. Baris Data Piksel Nyata dari Sensor Satelit GEE
+      pixelSamples.forEach((s) => {
+        const row = [
+          s.id,
+          s.latitude.toFixed(6),
+          s.longitude.toFixed(6),
+          ...chosenBands.map((b) => (s.band_values[b] !== undefined ? s.band_values[b] : '')),
+        ]
+        lines.push(row.join(','))
+      })
+
+      // 3. Tambahkan Baris Ringkasan Statistik Zonasi GEE di Bagian Bawah
+      lines.push('') // Baris kosong pemisah
+      lines.push(['# STATISTIK ZONASI GEE', '', '', ...chosenBands.map(() => '')].join(','))
+
+      const metrics = ['mean', 'min', 'max', 'stdDev']
+      metrics.forEach((m) => {
+        const row = [
+          `STAT_${m.toUpperCase()}`,
+          '',
+          '',
+          ...chosenBands.map((b) => (bandStats[b] && bandStats[b][m] !== null ? bandStats[b][m] : '')),
+        ]
+        lines.push(row.join(','))
+      })
+    } else {
+      // Fallback: Jika tidak ada sampel piksel, ekspor titik koordinat AOI dengan statistik
+      areaPoints.forEach((pt, idx) => {
+        const row = [
+          idx + 1,
+          pt[0].toFixed(6),
+          pt[1].toFixed(6),
+          ...chosenBands.map((b) => (bandStats[b]?.mean !== undefined ? bandStats[b].mean : '')),
+        ]
+        lines.push(row.join(','))
+      })
+    }
+
+    const csvString = lines.join('\r\n')
+    triggerBrowserDownload(csvString, `${cleanName}_gee_dataset.csv`, 'text/csv;charset=utf-8;')
+    message.success('Berkas CSV spektral GEE berhasil diunduh!')
   }
 
   // Unduh Berkas Manifest JSON
@@ -250,40 +360,6 @@ const GeeDatasetExtractorModal = ({
     if (!datasetResult || !datasetResult.python_snippet) return
     navigator.clipboard.writeText(datasetResult.python_snippet)
     message.success(t('copiedToClipboard'))
-  }
-
-  // Simpan Dataset ke AstraGIS Workspace (Diteruskan ke GeoServer WMS)
-  const handleSaveToAstraGis = async () => {
-    if (!selectedWorkspaceId) {
-      message.warning(t('selectTargetWorkspace'))
-      return
-    }
-    const cleanLayerName = (layerName.trim() || `${selectedSatelliteId.toUpperCase()}_Dataset_${dayjs().format('YYYYMMDD')}`).replace(/[^a-zA-Z0-9_\-]/g, '_')
-
-    setIsSavingAstraGis(true)
-    try {
-      const payload = {
-        coordinates: areaPoints,
-        satellite: selectedSatelliteId,
-        bands: selectedBands,
-        workspace_id: selectedWorkspaceId,
-        layer_name: cleanLayerName,
-        description: layerDescription.trim() || `${selectedSatelliteId} composite (${compositeMethod}) on ${areaHectares.toFixed(2)} Ha`,
-        start_date: dateRange[0].format('YYYY-MM-DD'),
-        end_date: dateRange[1].format('YYYY-MM-DD'),
-        cloud_percentage: cloudPct,
-        composite_method: compositeMethod,
-        orbit_pass: orbitPass,
-      }
-
-      await geeApi.saveDatasetToAstraGis(payload)
-      message.success(t('saveDatasetSuccess'))
-      onClose()
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Gagal menyimpan dataset ke AstraGIS.')
-    } finally {
-      setIsSavingAstraGis(false)
-    }
   }
 
   return (
@@ -569,61 +645,7 @@ const GeeDatasetExtractorModal = ({
             </div>
           </div>
 
-          {/* 4. OPSI UTAMA: TERBITKAN KE ASTRAGIS (GEOSERVER) */}
-          <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/70 p-3.5 rounded-2xl border border-blue-200/80 flex flex-col gap-2.5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
-                <CloudUploadOutlined className="text-blue-600 text-sm" />
-                <span>{t('saveDatasetToAstraGis')}</span>
-              </span>
-              <Tag color="blue" className="text-[10px] mr-0 font-medium">
-                ⚡ GeoServer WMS (Sangat Ringan)
-              </Tag>
-            </div>
-            <p className="text-[11px] text-blue-800 leading-snug">
-              Direkomendasikan untuk area luas (&gt;10.000 Ha): citra langsung diproses dan diteruskan ke GeoServer sebagai ubin WMS piramida cepat tanpa membebani browser.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-0.5">
-              <Select
-                placeholder={t('selectTargetWorkspace')}
-                value={selectedWorkspaceId}
-                onChange={setSelectedWorkspaceId}
-                className="w-full text-xs"
-                options={workspaces.map((w) => ({
-                  value: w.id,
-                  label: `${w.title || w.name} (${w.name})`,
-                }))}
-              />
-              <Input
-                placeholder="Nama Layer GeoTIFF"
-                value={layerName}
-                onChange={(e) => setLayerName(e.target.value)}
-                className="text-xs rounded-lg"
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                placeholder="Keterangan dataset (opsional)..."
-                value={layerDescription}
-                onChange={(e) => setLayerDescription(e.target.value)}
-                className="text-xs rounded-lg flex-1"
-              />
-              <Button
-                type="primary"
-                onClick={handleSaveToAstraGis}
-                loading={isSavingAstraGis}
-                disabled={selectedBands.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 font-bold text-xs shrink-0 py-2 h-auto px-4 shadow-sm"
-              >
-                <CloudUploadOutlined />
-                <span>Terbitkan ke GeoServer</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* 5. TOMBOL AKSI ALTERNATIF (PREVIEW DI PETA & UNDUH GEOTIFF MENTAH) */}
+          {/* 4. TOMBOL AKSI UTAMA (PREVIEW DI PETA & AMBIL DATA DARI GEE) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <button
               type="button"
@@ -661,34 +683,58 @@ const GeeDatasetExtractorModal = ({
                 </Tag>
               </div>
 
-              {/* Tombol Unduhan & Salin Kode */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {/* Tombol Unduhan Format Utama: GeoTIFF, GeoJSON, CSV */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Unduh GeoTIFF (.tif) */}
                 <a
                   href={datasetResult.download_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition"
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
                 >
                   <DownloadOutlined />
                   <span>GeoTIFF (.tif)</span>
                 </a>
 
+                {/* 2. Unduh GeoJSON (.geojson) */}
+                <button
+                  type="button"
+                  onClick={handleDownloadGeoJson}
+                  className="py-2.5 px-3 rounded-xl bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  <FileTextOutlined className="text-emerald-600" />
+                  <span>GeoJSON (.geojson)</span>
+                </button>
+
+                {/* 3. Unduh CSV (.csv) */}
+                <button
+                  type="button"
+                  onClick={handleDownloadCsv}
+                  className="py-2.5 px-3 rounded-xl bg-white hover:bg-blue-50 border border-blue-300 text-blue-800 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  <TableOutlined className="text-blue-600" />
+                  <span>Data CSV (.csv)</span>
+                </button>
+              </div>
+
+              {/* Tambahan untuk Riset & Developer: Manifest & Snippet Kode PyTorch */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/60">
                 <button
                   type="button"
                   onClick={handleDownloadManifestJson}
-                  className="py-2 px-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                  className="py-1.5 px-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
-                  <FileTextOutlined className="text-blue-600" />
-                  <span>Manifest (.json)</span>
+                  <FileTextOutlined className="text-gray-500" />
+                  <span>Manifest JSON</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsCodeModalVisible(true)}
-                  className="py-2 px-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                  className="py-1.5 px-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
                   <CodeOutlined className="text-purple-600" />
-                  <span>Python / PyTorch</span>
+                  <span>Snippet PyTorch</span>
                 </button>
               </div>
             </div>

@@ -34,32 +34,14 @@ const AoiExportModal = ({
   const [fileName, setFileName] = useState('Mangrove_AOI')
   const [fileDesc, setFileDesc] = useState('')
 
-  // State AstraGIS Save
-  const [workspaces, setWorkspaces] = useState([])
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
-  const [isSavingAstraGis, setIsSavingAstraGis] = useState(false)
   const [isExportingShp, setIsExportingShp] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
       const nowStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       setFileName(`Mangrove_AOI_${nowStr}`)
-      loadWorkspaces()
     }
   }, [isOpen])
-
-  const loadWorkspaces = async () => {
-    try {
-      const res = await workspaceApi.getAll()
-      const list = res.data?.data || res.data || []
-      setWorkspaces(list)
-      if (list.length > 0 && !selectedWorkspaceId) {
-        setSelectedWorkspaceId(list[0].id)
-      }
-    } catch (err) {
-      console.warn('Gagal memuat workspace AstraGIS:', err)
-    }
-  }
 
   // 1. Download GeoJSON
   const handleDownloadGeoJson = () => {
@@ -103,35 +85,7 @@ const AoiExportModal = ({
     }
   }
 
-  // 4. Simpan GeoTIFF Sentinel-2 ke AstraGIS Workspace
-  const handleSaveToAstraGis = async () => {
-    if (!selectedWorkspaceId) {
-      message.warning(t('selectTargetWorkspace'))
-      return
-    }
-    if (!fileName.trim()) {
-      message.warning('Nama layer tidak boleh kosong.')
-      return
-    }
 
-    setIsSavingAstraGis(true)
-    try {
-      const payload = {
-        coordinates: areaPoints,
-        analysis_type: 'ndvi',
-        workspace_id: selectedWorkspaceId,
-        layer_name: fileName.trim(),
-        description: fileDesc.trim() || `AOI Mangrove Polygon (${areaHectares.toFixed(2)} Ha)`,
-      }
-      await geeApi.saveToAstraGis(payload)
-      message.success(t('aoiSavedToAstraGisSuccess'))
-      onClose()
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Gagal menyimpan layer ke AstraGIS.')
-    } finally {
-      setIsSavingAstraGis(false)
-    }
-  }
 
   const items = [
     {
@@ -325,75 +279,6 @@ const AoiExportModal = ({
               </button>
             </div>
           </div>
-        </div>
-      ),
-    },
-    {
-      key: 'astragis',
-      label: (
-        <span className="flex items-center gap-1.5 text-xs font-semibold">
-          <CloudUploadOutlined className="text-amber-600" />
-          <span>AstraGIS</span>
-        </span>
-      ),
-      children: (
-        <div className="flex flex-col gap-3 py-1">
-          <p className="text-xs text-gray-600 leading-relaxed">
-            Simpan raster GeoTIFF citra satelit pada area ini langsung ke dalam workspace AstraGIS GeoServer Anda.
-          </p>
-
-          <div className="flex flex-col gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">
-                {t('selectTargetWorkspace')} *
-              </label>
-              <Select
-                placeholder={t('selectTargetWorkspace')}
-                value={selectedWorkspaceId}
-                onChange={setSelectedWorkspaceId}
-                className="w-full text-xs"
-                options={workspaces.map((w) => ({
-                  value: w.id,
-                  label: `${w.title || w.name} (${w.name})`,
-                }))}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">
-                {t('aoiNameLabel')} *
-              </label>
-              <Input
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                placeholder="Nama Layer GeoTIFF"
-                className="text-xs rounded-lg"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">
-                {t('aoiDescriptionLabel')}
-              </label>
-              <Input.TextArea
-                rows={2}
-                value={fileDesc}
-                onChange={(e) => setFileDesc(e.target.value)}
-                placeholder="Deskripsi ringkas layer..."
-                className="text-xs rounded-lg"
-              />
-            </div>
-          </div>
-
-          <Button
-            type="primary"
-            onClick={handleSaveToAstraGis}
-            loading={isSavingAstraGis}
-            className="w-full py-2.5 h-auto rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs"
-          >
-            <CloudUploadOutlined />
-            <span>{t('saveAoiToAstraGis')}</span>
-          </Button>
         </div>
       ),
     },

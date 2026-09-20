@@ -969,6 +969,69 @@ class GeeAnalysisService:
 
             band_details = [b for b in cfg["bands"] if b["id"] in chosen_bands]
 
+            # 1. Komputasi Statistik Zonasi Spektral GEE (Mean, Min, Max, StdDev per band)
+            band_statistics = {}
+            try:
+                reducer = (
+                    ee.Reducer.mean()
+                    .combine(ee.Reducer.minMax(), "", True)
+                    .combine(ee.Reducer.stdDev(), "", True)
+                )
+                stats_raw = selected_image.reduceRegion(
+                    reducer=reducer,
+                    geometry=roi,
+                    scale=max(used_scale, 60),
+                    maxPixels=1e7,
+                ).getInfo()
+
+                for b in chosen_bands:
+                    mean_val = stats_raw.get(f"{b}_mean")
+                    min_val = stats_raw.get(f"{b}_min")
+                    max_val = stats_raw.get(f"{b}_max")
+                    std_val = stats_raw.get(f"{b}_stdDev")
+                    band_statistics[b] = {
+                        "mean": round(float(mean_val), 4) if mean_val is not None else None,
+                        "min": round(float(min_val), 4) if min_val is not None else None,
+                        "max": round(float(max_val), 4) if max_val is not None else None,
+                        "stdDev": round(float(std_val), 4) if std_val is not None else None,
+                    }
+            except Exception as stat_err:
+                print(f"Warning: Gagal menghitung statistik zonasi GEE: {stat_err}")
+                band_statistics = {}
+
+            # 2. Ekstraksi Titik Sampel Piksel Spektral Nyata dari Citra GEE
+            pixel_samples = []
+            try:
+                sample_scale = max(used_scale, 60)
+                # Ambil hingga 100 titik piksel representatif di dalam AOI dengan nilai band asli
+                samples_fc = selected_image.sample(
+                    region=roi,
+                    scale=sample_scale,
+                    numPixels=100,
+                    geometries=True,
+                ).getInfo()
+
+                raw_features = samples_fc.get("features", [])
+                for idx, feat in enumerate(raw_features):
+                    geom = feat.get("geometry", {})
+                    props = feat.get("properties", {})
+                    clean_props = {}
+                    for b in chosen_bands:
+                        val = props.get(b)
+                        clean_props[b] = round(float(val), 4) if val is not None else 0.0
+
+                    coords = geom.get("coordinates", [])
+                    if len(coords) >= 2:
+                        pixel_samples.append({
+                            "id": idx + 1,
+                            "longitude": round(float(coords[0]), 6),
+                            "latitude": round(float(coords[1]), 6),
+                            "band_values": clean_props,
+                        })
+            except Exception as sample_err:
+                print(f"Warning: Gagal mengekstrak sampel piksel GEE: {sample_err}")
+                pixel_samples = []
+
             manifest = {
                 "dataset_name": dataset_clean_name,
                 "satellite_id": cfg["id"],
@@ -979,6 +1042,8 @@ class GeeAnalysisService:
                 "bands": chosen_bands,
                 "band_count": len(chosen_bands),
                 "band_details": band_details,
+                "band_statistics": band_statistics,
+                "sample_points_count": len(pixel_samples),
                 "date_range": {"start_date": start_date, "end_date": end_date},
                 "cloud_percentage_threshold": cloud_percentage,
                 "composite_method": composite_method,
@@ -1020,6 +1085,8 @@ print(f"PyTorch Tensor Siap Training: {{tensor_x.shape}} | Tipe Data: {{tensor_x
                 "spatial_resolution_meters": used_scale,
                 "area_hectares": round(area_ha, 2),
                 "bands": chosen_bands,
+                "band_statistics": band_statistics,
+                "pixel_samples": pixel_samples,
                 "manifest": manifest,
                 "python_snippet": python_code_snippet,
             }
