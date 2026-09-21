@@ -362,11 +362,28 @@ const GeeDatasetExtractorModal = ({
     message.success(t('copiedToClipboard'))
   }
 
+  // Handle Minimize (-) : Menutup modal tanpa menghapus hasil ekstraksi & preview di peta
+  const handleMinimize = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    onClose()
+  }
+
+  // Handle Close & Clear (✕) : Menutup modal dan membersihkan hasil ekstraksi serta preview layer di peta
+  const handleCloseAndClear = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    setDatasetResult(null)
+    if (onClearPreviewLayer) {
+      onClearPreviewLayer()
+    }
+    onClose()
+    message.info(t('datasetClearedNotice') || t('analysisClearedNotice'))
+  }
+
   return (
     <>
       <Modal
         open={isOpen}
-        onCancel={onClose}
+        onCancel={handleMinimize}
         footer={null}
         width={780}
         centered
@@ -388,14 +405,27 @@ const GeeDatasetExtractorModal = ({
               </div>
             </div>
 
-            {/* Header Kanan: Tombol Close Window */}
+            {/* Header Kanan: Window Controls (Minimize & Close) */}
             <div className="flex items-center gap-1.5 shrink-0 ml-1">
-              <Tooltip title={t('close')} placement="bottom">
+              {/* Tombol Minimize (-) */}
+              <Tooltip title={t('minimizeModal')} placement="bottom">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleMinimize}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 flex items-center justify-center font-bold text-base transition cursor-pointer border border-gray-200 active:scale-95 shadow-sm"
+                  aria-label={t('minimizeModal')}
+                >
+                  —
+                </button>
+              </Tooltip>
+
+              {/* Tombol Close & Clear (✕) */}
+              <Tooltip title={t('closeAndClearExtractorModal') || t('closeAndClearModal')} placement="bottom">
+                <button
+                  type="button"
+                  onClick={handleCloseAndClear}
                   className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 flex items-center justify-center font-bold text-xs sm:text-sm transition cursor-pointer border border-gray-200 hover:border-red-300 active:scale-95 shadow-sm"
-                  aria-label={t('close')}
+                  aria-label={t('closeAndClearExtractorModal') || t('closeAndClearModal')}
                 >
                   ✕
                 </button>

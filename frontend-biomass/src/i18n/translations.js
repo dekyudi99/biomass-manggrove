@@ -403,6 +403,8 @@ export const translations = {
     downloadGeoJsonSuccess: 'Berkas GeoJSON dataset GEE berhasil diunduh!',
     downloadCsvSuccess: 'Berkas CSV spektral GEE berhasil diunduh!',
     polygonMinPoints: 'Area poligon minimal harus memiliki 3 titik koordinat.',
+    closeAndClearExtractorModal: 'Tutup & Hapus Hasil Ekstraksi',
+    datasetClearedNotice: 'Ekstraksi dataset citra ditutup dan pratinjau dibersihkan.',
 
     // Upload AOI, Edit ROI & Export Data
     uploadAoiBtn: 'Upload File AOI (GeoJSON / CSV / SHP)',
@@ -840,6 +842,8 @@ export const translations = {
     downloadGeoJsonSuccess: 'GEE dataset GeoJSON file downloaded successfully!',
     downloadCsvSuccess: 'GEE spectral CSV file downloaded successfully!',
     polygonMinPoints: 'Polygon area must contain at least 3 coordinates.',
+    closeAndClearExtractorModal: 'Close & Clear Extracted Dataset',
+    datasetClearedNotice: 'Dataset extraction closed and preview cleared.',
 
     // Upload AOI, Edit ROI & Export Data
     uploadAoiBtn: 'Upload AOI File (GeoJSON / CSV / SHP)',
@@ -1277,6 +1281,8 @@ export const translations = {
     downloadGeoJsonSuccess: 'ดาวน์โหลดไฟล์ GeoJSON ของชุดข้อมูล GEE สำเร็จแล้ว!',
     downloadCsvSuccess: 'ดาวน์โหลดไฟล์ CSV สเปกตรัม GEE สำเร็จแล้ว!',
     polygonMinPoints: 'พื้นที่รูปหลายเหลี่ยมต้องมีพิกัดอย่างน้อย 3 จุด',
+    closeAndClearExtractorModal: 'ปิดและล้างผลการสกัดชุดข้อมูล',
+    datasetClearedNotice: 'ปิดการสกัดชุดข้อมูลและล้างการแสดงตัวอย่างแล้ว',
 
     // อัปโหลด AOI แก้ไข ROI และส่งออกข้อมูล
     uploadAoiBtn: 'อัปโหลดไฟล์ AOI (GeoJSON / CSV / SHP)',
