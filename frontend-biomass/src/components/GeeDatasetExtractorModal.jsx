@@ -127,7 +127,7 @@ const GeeDatasetExtractorModal = ({
   // Jalankan Preview Peta
   const handlePreviewMap = async () => {
     if (!areaPoints || areaPoints.length < 3) {
-      message.error('Area poligon minimal harus memiliki 3 titik koordinat.')
+      message.error(t('polygonMinPoints') || 'Area poligon minimal harus memiliki 3 titik koordinat.')
       return
     }
     if (selectedBands.length === 0) {
@@ -173,7 +173,7 @@ const GeeDatasetExtractorModal = ({
   // Generate GeoTIFF Multi-Band & Manifest
   const handleGenerateDownload = async () => {
     if (!areaPoints || areaPoints.length < 3) {
-      message.error('Area poligon minimal harus memiliki 3 titik koordinat.')
+      message.error(t('polygonMinPoints') || 'Area poligon minimal harus memiliki 3 titik koordinat.')
       return
     }
     if (selectedBands.length === 0) {
@@ -280,7 +280,7 @@ const GeeDatasetExtractorModal = ({
     }
 
     triggerBrowserDownload(JSON.stringify(geojson, null, 2), `${cleanName}_gee_dataset.geojson`, 'application/geo+json')
-    message.success('Berkas GeoJSON dataset GEE berhasil diunduh!')
+    message.success(t('downloadGeoJsonSuccess') || 'Berkas GeoJSON dataset GEE berhasil diunduh!')
   }
 
   // Unduh Berkas CSV Akurat (Nilai Piksel Spektral GEE & Statistik Ringkasan)
@@ -339,7 +339,7 @@ const GeeDatasetExtractorModal = ({
 
     const csvString = lines.join('\r\n')
     triggerBrowserDownload(csvString, `${cleanName}_gee_dataset.csv`, 'text/csv;charset=utf-8;')
-    message.success('Berkas CSV spektral GEE berhasil diunduh!')
+    message.success(t('downloadCsvSuccess') || 'Berkas CSV spektral GEE berhasil diunduh!')
   }
 
   // Unduh Berkas Manifest JSON
@@ -383,7 +383,7 @@ const GeeDatasetExtractorModal = ({
                   {t('datasetExtractorTitle')}
                 </h3>
                 <p className="text-[10px] sm:text-[11px] text-gray-500 font-normal leading-snug truncate">
-                  {t('datasetExtractorSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} Titik)
+                  {t('datasetExtractorSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} {t('pointsUnit') || 'Titik'})
                 </p>
               </div>
             </div>
@@ -429,14 +429,14 @@ const GeeDatasetExtractorModal = ({
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1">
                         <span className="font-bold text-xs text-gray-900 truncate">
-                          {sat.id === 'sentinel2' ? 'Sentinel-2 MSI' : sat.id === 'landsat89' ? 'Landsat 8/9 SR' : 'Sentinel-1 SAR'}
+                          {t(`satName_${sat.id}`) || (sat.id === 'sentinel2' ? 'Sentinel-2 MSI' : sat.id === 'landsat89' ? 'Landsat 8/9 SR' : 'Sentinel-1 SAR')}
                         </span>
                         <Tag color={sat.type === 'sar' ? 'purple' : 'blue'} className="mr-0 text-[9px] px-1 py-0">
                           {sat.native_scale}m
                         </Tag>
                       </div>
                       <p className="text-[10px] text-gray-500 line-clamp-2 leading-tight">
-                        {sat.description}
+                        {t(`satDesc_${sat.id}`) || sat.description}
                       </p>
                     </div>
                     <div className="mt-2 pt-1 border-t border-gray-100 flex items-center justify-between text-[9px] text-gray-400 font-medium">
@@ -491,9 +491,9 @@ const GeeDatasetExtractorModal = ({
                     type="button"
                     onClick={() => applyBandPreset(preset.bands)}
                     className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-semibold border border-blue-200/60 cursor-pointer transition active:scale-95"
-                    title={preset.desc}
+                    title={t(`presetDesc_${preset.id}`) || preset.desc}
                   >
-                    ⚡ {preset.name}
+                    ⚡ {t(`presetName_${preset.id}`) || preset.name}
                   </button>
                 ))}
               </div>
@@ -552,7 +552,7 @@ const GeeDatasetExtractorModal = ({
                       activeQuickMonths === 3 ? 'bg-blue-600 text-white font-bold' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
-                    3B
+                    {t('quickDate3m') || '3B'}
                   </button>
                   <button
                     type="button"
@@ -561,7 +561,7 @@ const GeeDatasetExtractorModal = ({
                       activeQuickMonths === 6 ? 'bg-blue-600 text-white font-bold' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
-                    6B
+                    {t('quickDate6m') || '6B'}
                   </button>
                   <button
                     type="button"
@@ -570,7 +570,7 @@ const GeeDatasetExtractorModal = ({
                       activeQuickMonths === 12 ? 'bg-blue-600 text-white font-bold' : 'bg-white border border-gray-200 text-gray-600'
                     }`}
                   >
-                    1Th
+                    {t('quickDate1y') || '1Th'}
                   </button>
                 </div>
               </div>
