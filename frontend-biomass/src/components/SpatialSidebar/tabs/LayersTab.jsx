@@ -114,9 +114,18 @@ const LayersTab = ({
                       <p className="font-semibold text-gray-800 truncate leading-tight">
                         {layer.layer_name}
                       </p>
-                      <p className="text-[10px] text-gray-400 truncate">
-                        {layer.workspace_display_name || layer.workspace_name} •{' '}
-                        {layer.data_type || 'Raster'}
+                      <p className="text-[10px] text-gray-400 truncate flex items-center gap-1.5 mt-0.5">
+                        <span className="truncate">{layer.workspace_display_name || layer.workspace_name}</span>
+                        <span>•</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-medium ${
+                            layer.layer_type === 'vector'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}
+                        >
+                          {layer.data_type || (layer.layer_type === 'vector' ? 'Vector' : 'Raster')}
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -143,14 +152,16 @@ const LayersTab = ({
                       </button>
                     </Tooltip>
 
-                    <Tooltip title={t('editStyle')}>
-                      <button
-                        onClick={() => onOpenStyleModal(layer)}
-                        className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-gray-100 rounded-md cursor-pointer transition"
-                      >
-                        <BgColorsOutlined className="text-sm" />
-                      </button>
-                    </Tooltip>
+                    {layer.layer_type !== 'vector' && (
+                      <Tooltip title={t('editStyle')}>
+                        <button
+                          onClick={() => onOpenStyleModal(layer)}
+                          className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-gray-100 rounded-md cursor-pointer transition"
+                        >
+                          <BgColorsOutlined className="text-sm" />
+                        </button>
+                      </Tooltip>
+                    )}
 
                     <Popconfirm
                       title={t('confirmDeleteLayerTitle')}

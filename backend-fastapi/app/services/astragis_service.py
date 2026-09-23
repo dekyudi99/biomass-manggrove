@@ -151,8 +151,11 @@ class AstraGISService:
 
     @staticmethod
     async def publish_layer(file_bytes: bytes, filename: str, content_type: str, form_data: dict):
+        VECTOR_EXTENSIONS = ('.shp', '.zip', '.geojson', '.json', '.gpkg', '.csv')
+        ext = os.path.splitext(filename or "")[1].lower()
+        endpoint = "/s2s/publish-vector" if ext in VECTOR_EXTENSIONS else "/s2s/publish"
         files = {"file": (filename, file_bytes, content_type)}
-        return await make_request("POST", "/s2s/publish", files=files, data=form_data)
+        return await make_request("POST", endpoint, files=files, data=form_data)
 
     @staticmethod
     async def publish_from_url(payload: dict):

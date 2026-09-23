@@ -218,27 +218,31 @@ const Dashboard = () => {
   }, [areaPoints, isAreaClosed])
 
   // Helper resolve URL WMS:
-  // Selalu gunakan same-origin /geoserver jika diakses lewat HTTPS/domain publik
-  // agar tidak terblokir Mixed Content (HTTPS vs HTTP) dan selalu ter-proxy dengan aman.
+  // Menggunakan base URL GeoServer dinamis dari environment (VITE_GEOSERVER_WMS_URL) tanpa hardcode
   const resolveWmsUrl = (wmsUrl) => {
     if (!wmsUrl) return wmsUrl
-    try {
-      const parsed = new URL(wmsUrl, window.location.origin)
-      const geoserverIdx = parsed.pathname.indexOf('/geoserver')
-      if (geoserverIdx !== -1) {
-        const isHttpsPage = window.location.protocol === 'https:'
-        const customWms = import.meta.env.VITE_GEOSERVER_WMS_URL
-        if (customWms && !isHttpsPage && !customWms.includes('localhost')) {
-          const relPath = parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
-          return `${customWms.replace(/\/+$/, '')}${relPath}${parsed.search}`
+    const envWms = import.meta.env.VITE_GEOSERVER_WMS_URL
+    if (envWms && typeof envWms === 'string' && envWms.trim() !== '') {
+      try {
+        const cleanEnv = envWms.trim().replace(/\/+$/, '')
+        const parsed = new URL(wmsUrl, window.location.origin)
+        const geoserverIdx = parsed.pathname.indexOf('/geoserver')
+
+        if (geoserverIdx !== -1) {
+          const afterGeoserver = parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
+          if (cleanEnv.endsWith('/geoserver')) {
+            return `${cleanEnv}${afterGeoserver}${parsed.search}`
+          }
+          const fromGeoserver = parsed.pathname.substring(geoserverIdx)
+          return `${cleanEnv}${fromGeoserver}${parsed.search}`
         }
-        const relPath = parsed.pathname.substring(geoserverIdx)
-        return `${window.location.origin}${relPath}${parsed.search}`
+
+        return `${cleanEnv}${parsed.pathname}${parsed.search}`
+      } catch {
+        return wmsUrl
       }
-      return wmsUrl
-    } catch {
-      return wmsUrl
     }
+    return wmsUrl
   }
 
   // Reverse Geocoding dengan bahasa dinamis sesuai pilihan user

@@ -65,7 +65,7 @@ async def get_layers(
 async def publish_layer(
     file: UploadFile = File(...),
     layer_name: str = Form(...),
-    workspace_id: int = Form(...),
+    workspace_id: str = Form(...),
     description: Optional[str] = Form(""),
 ):
     file_bytes = await file.read()
@@ -76,8 +76,8 @@ async def publish_layer(
     }
     return await AstraGISService.publish_layer(
         file_bytes=file_bytes,
-        filename=file.filename,
-        content_type=file.content_type or "image/tiff",
+        filename=file.filename or "layer",
+        content_type=file.content_type or "application/octet-stream",
         form_data=form_data,
     )
 
