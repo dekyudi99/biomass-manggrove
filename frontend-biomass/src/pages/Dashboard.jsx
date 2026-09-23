@@ -88,7 +88,7 @@ function MapEvents({ mode, isAreaClosed, onMapClick }) {
 
 const Dashboard = () => {
   const { t, currentLanguage } = useLanguage()
-  const defaultCenter = [-8.7291, 115.2105]
+  const defaultCenter = [ 3.074695, 101.672974]
   const [activeLayer, setActiveLayer] = useState('osm')
   const currentLayer = BASE_LAYERS[activeLayer]
 
@@ -113,6 +113,7 @@ const Dashboard = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isEditingRoi, setIsEditingRoi] = useState(false)
   const [geePreviewLayer, setGeePreviewLayer] = useState(null)
+  const [isLegendMinimized, setIsLegendMinimized] = useState(false)
 
   // State untuk Visibilitas AOI Poligon (agar warna hijau tidak menimpa/mengubah warna GEE)
   const [isAoiVisible, setIsAoiVisible] = useState(true)
@@ -377,7 +378,7 @@ const Dashboard = () => {
       {/* Peta Utama */}
       <MapContainer
         center={defaultCenter}
-        zoom={15}
+        zoom={5}
         zoomControl={false}
         scrollWheelZoom={true}
         className="h-full w-full z-0 cursor-crosshair"
@@ -410,6 +411,7 @@ const Dashboard = () => {
             zIndex={150}
           />
         )}
+
 
         {/* Render Layer WMS AstraGIS yang Aktif (dengan cache-busting instant saat style diubah) */}
         {visibleLayers.map((layer) => (
@@ -747,6 +749,75 @@ const Dashboard = () => {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Floating Legend Hasil Analisis GEE / Gradasi Hijau AGB */}
+      {geePreviewLayer && geePreviewLayer.palette && (
+        <div className="absolute bottom-6 right-6 z-[900] bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-emerald-300 max-w-xs text-xs transition-all">
+          <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-gray-100">
+            <div className="flex items-center gap-1.5 font-bold text-gray-800">
+              <span className="text-emerald-600">📊</span>
+              <span>
+                Legenda: <span className="text-emerald-700 uppercase">{geePreviewLayer.analysisType}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-gray-500 font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                {geePreviewLayer.palette.unit || 'Index'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsLegendMinimized((prev) => !prev)}
+                className="text-gray-400 hover:text-gray-600 font-bold px-1 text-xs cursor-pointer"
+                title={isLegendMinimized ? 'Perluas' : 'Minimalkan'}
+              >
+                {isLegendMinimized ? '▲' : '▼'}
+              </button>
+            </div>
+          </div>
+
+          {!isLegendMinimized && (
+            <>
+              {/* Color ramp bar */}
+              <div
+                className="h-2.5 rounded-md w-full shadow-inner mb-1"
+                style={{
+                  background: `linear-gradient(to right, ${geePreviewLayer.palette.colors.join(', ')})`,
+                }}
+              />
+
+              <div className="flex justify-between text-[10px] text-gray-500 font-mono mb-2">
+                <span>Min: {geePreviewLayer.palette.min}</span>
+                <span>Maks: {geePreviewLayer.palette.max}</span>
+              </div>
+
+              {/* Labels list */}
+              {geePreviewLayer.palette.labels && (
+                <div className="space-y-1 text-[10px]">
+                  {geePreviewLayer.palette.labels.map((lbl, lIdx) => {
+                    const color = geePreviewLayer.palette.colors[lIdx] || '#238443'
+                    return (
+                      <div key={lIdx} className="flex items-center gap-1.5">
+                        <span
+                          className="w-3 h-3 rounded-sm shrink-0 border border-black/10 shadow-xs"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-gray-700">{lbl}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {geePreviewLayer.analysisType === 'agb' && (
+                <div className="mt-2 pt-1.5 border-t border-emerald-100 text-[10px] text-emerald-800 font-semibold flex items-center gap-1">
+                  <span>🌿</span>
+                  <span>Nilai AGB makin tinggi = Warna semakin hijau pekat.</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

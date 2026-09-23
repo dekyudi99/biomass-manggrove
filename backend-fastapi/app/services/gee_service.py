@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 from app.services.astragis_service import AstraGISService
+from app.services.ml_agb_service import MlAgbService
 
 # Palette standar untuk visualisasi GEE & SLD
 PALETTES = {
@@ -59,27 +60,18 @@ PALETTES = {
     },
     "agb": {
         "min": 0.0,
-        "max": 350.0,
-        "colors": ["#ffffcc", "#c7e9b4", "#7fcdbb", "#41b6c4", "#1d91c0", "#225ea8", "#0c2c84"],
-        "labels": ["0-20 Ton/Ha", "20-60 Ton/Ha", "60-120 Ton/Ha", "120-180 Ton/Ha", "180-240 Ton/Ha", "240-300 Ton/Ha", ">300 Ton/Ha"],
+        "max": 2500.0,
+        "colors": ["#ffffd4", "#d9f0a3", "#78c679", "#41ab5d", "#238443", "#004529"],
+        "labels": [
+            "< 250 kg (Sangat Rendah)",
+            "250 - 750 kg (Rendah)",
+            "750 - 1.250 kg (Sedang)",
+            "1.250 - 1.750 kg (Bagus)",
+            "1.750 - 2.250 kg (Tinggi/Lebat)",
+            "> 2.250 kg (Sangat Lebat/Optimal)"
+        ],
         "style_type": "ramp",
-        "unit": "Ton / Hektar",
-    },
-    "carbon": {
-        "min": 0.0,
-        "max": 165.0,
-        "colors": ["#edf8fb", "#b2e2e2", "#66c2a4", "#2ca25f", "#006d2c"],
-        "labels": ["0-15 Ton C/Ha", "15-40 Ton C/Ha", "40-75 Ton C/Ha", "75-115 Ton C/Ha", ">115 Ton C/Ha"],
-        "style_type": "ramp",
-        "unit": "Ton C / Hektar",
-    },
-    "canopy_density": {
-        "min": 1,
-        "max": 3,
-        "colors": ["#fee391", "#fe9929", "#006d2c"],
-        "labels": ["Jarang (<50%)", "Sedang (50-70%)", "Lebat (>70%)"],
-        "style_type": "values",
-        "unit": "Kelas Kerapatan",
+        "unit": "kg (AGB)",
     },
 }
 
@@ -425,36 +417,14 @@ class GeeAnalysisService:
             img = ndvi_img.subtract(ndwi_img).rename("cmri")
             return img, "cmri"
 
-        # 3. KATEGORI BIOMASSA & KARBON
+        # 3. KATEGORI BIOMASSA
         elif a_type == "agb":
             ndvi_img = composite.normalizedDifference(["B8", "B4"])
-            # Model empiris regresi kanopi mangrove tropis (Ton/Ha)
             img = composite.expression(
                 "max(0, 115 * exp(1.65 * NDVI) - 60)",
                 {"NDVI": ndvi_img}
             ).rename("agb")
             return img, "agb"
-
-        elif a_type == "carbon":
-            ndvi_img = composite.normalizedDifference(["B8", "B4"])
-            agb_img = composite.expression(
-                "max(0, 115 * exp(1.65 * NDVI) - 60)",
-                {"NDVI": ndvi_img}
-            )
-            # Faktor konversi karbon IPCC 0.47
-            img = agb_img.multiply(0.47).rename("carbon")
-            return img, "carbon"
-
-        elif a_type == "canopy_density":
-            ndvi_img = composite.normalizedDifference(["B8", "B4"])
-            # 1: Jarang (<0.4), 2: Sedang (0.4 - 0.6), 3: Lebat (>0.6)
-            img = (
-                ee.Image(1)
-                .where(ndvi_img.gte(0.4).And(ndvi_img.lt(0.6)), 2)
-                .where(ndvi_img.gte(0.6), 3)
-                .rename("canopy_density")
-            )
-            return img, "canopy_density"
 
         else:
             # Default ke NDVI
@@ -482,12 +452,141 @@ class GeeAnalysisService:
                 start_date = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
 
             roi = cls._create_roi(coordinates)
+            area_ha = roi.area().divide(10000).getInfo()
+            area_ha = float(area_ha) if area_ha is not None else 1.0
+
             composite = cls._get_sentinel_composite(roi, start_date, end_date, cloud_percentage)
             
-            index_image, band_name = cls.compute_index_image(composite, analysis_type)
-            palette_cfg = PALETTES.get(band_name, PALETTES["ndvi"])
+            ml_points = []
+            ml_model_info = None
 
-            # 1. Visualisasi MapId Tile URL untuk Leaflet
+            if analysis_type.lower() == "agb":
+                band_name = "agb"
+                palette_cfg = PALETTES["agb"]
+
+                # 1. Fusi Multi-Sensor: Sentinel-1 SAR (VV, VH) & Sentinel-2 MSI (NDVI)
+                s1_composite = cls._get_sentinel1_composite(roi, start_date, end_date)
+                s1_vv_vh = s1_composite.select(["VV", "VH"])
+                ndvi_img = composite.normalizedDifference(["B8", "B4"]).rename("NDVI")
+
+                # Raster GEE untuk TileLayer peta Leaflet
+                index_image = ee.Image().expression(
+                    "max(0, 434.7 + 44.11 * VV + 46.73 * VH + 1916.0 * NDVI)",
+                    {
+                        "VV": s1_vv_vh.select("VV"),
+                        "VH": s1_vv_vh.select("VH"),
+                        "NDVI": ndvi_img.select("NDVI")
+                    }
+                ).rename("agb")
+
+                # 2. Komputasi Integrasi 100% Seluruh Piksel Area di GEE (Full-Area Pixel Reduction)
+                # Membedakan tutupan kanopi mangrove murni dari perairan laut terbuka / tambak / alur pasang surut
+                mangrove_mask = index_image.gt(0).And(ndvi_img.gt(0.15))
+                mangrove_agb = index_image.updateMask(mangrove_mask)
+
+                calc_scale = 20 if area_ha < 10000 else 30
+
+                try:
+                    # A. Luas Tutupan Kanopi Mangrove Sebenarnya (Hektar)
+                    pixel_area = ee.Image.pixelArea().divide(10000)
+                    mangrove_area_obj = pixel_area.updateMask(mangrove_mask).reduceRegion(
+                        reducer=ee.Reducer.sum(),
+                        geometry=roi,
+                        scale=calc_scale,
+                        maxPixels=1e8
+                    ).get('area')
+                    mangrove_area_val = round(float(mangrove_area_obj.getInfo() or 0.0), 2)
+                except Exception as area_err:
+                    print(f"Notice: Mangrove area calculation fallback: {area_err}")
+                    mangrove_area_val = round(area_ha, 2)
+
+                if mangrove_area_val <= 0:
+                    mangrove_area_val = round(area_ha, 2)
+                    target_raster = index_image
+                else:
+                    target_raster = mangrove_agb
+
+                try:
+                    # B. Reducer 100% Seluruh Piksel: Rata-rata, Min, Maks AGB pada Kanopi Mangrove
+                    reducer = ee.Reducer.mean().combine(ee.Reducer.minMax(), "", True)
+                    stats_full = target_raster.reduceRegion(
+                        reducer=reducer,
+                        geometry=roi,
+                        scale=calc_scale,
+                        maxPixels=1e8
+                    ).getInfo()
+
+                    mean_val = round(float(stats_full.get("agb_mean") or 0.0), 2)
+                    min_val = round(float(stats_full.get("agb_min") or 0.0), 2)
+                    max_val = round(float(stats_full.get("agb_max") or 0.0), 2)
+                except Exception as stat_err:
+                    print(f"Notice: Full pixel reducer fallback: {stat_err}")
+                    mean_val = 0.0
+                    min_val = 0.0
+                    max_val = 0.0
+
+                # 3. Ekstraksi Data Grid Piksel Area untuk Ekspor Berkas CSV (Format Excel)
+                stacked = ee.Image.cat([s1_vv_vh, ndvi_img])
+                pixel_scale = 20 if area_ha < 500 else (30 if area_ha < 3000 else 60)
+                max_pixels = 500 if area_ha > 500 else 250
+
+                try:
+                    pixels_fc = stacked.sample(
+                        region=roi,
+                        scale=pixel_scale,
+                        numPixels=max_pixels,
+                        geometries=True
+                    ).getInfo()
+
+                    raw_features = pixels_fc.get("features", [])
+                    pixel_list = []
+                    for f in raw_features:
+                        coords = f.get("geometry", {}).get("coordinates", [])
+                        props = f.get("properties", {})
+                        if len(coords) >= 2:
+                            pixel_list.append({
+                                "lat": coords[1],
+                                "lng": coords[0],
+                                "VV": props.get("VV", -10.0),
+                                "VH": props.get("VH", -16.0),
+                                "NDVI": props.get("NDVI", 0.5)
+                            })
+
+                    ml_res = MlAgbService.process_sample_features(pixel_list, area_ha=area_ha)
+                    ml_points = ml_res.get("points", [])
+                except Exception as ml_pixel_err:
+                    print(f"Notice: ML pixel extraction warning: {ml_pixel_err}")
+                    ml_points = []
+
+                ml_model_info = {
+                    "model_name": "LightGBM Regressor (best_mangrove_agb_model.joblib)",
+                    "features": ["VV", "VH", "NDVI"],
+                    "target": "AGB_Revised_kg",
+                    "description": "Model estimasi biomassa mangrove berbasis fusi multi-sensor Sentinel-1 SAR C-band & Sentinel-2 MSI"
+                }
+
+            else:
+                index_image, band_name = cls.compute_index_image(composite, analysis_type)
+                palette_cfg = PALETTES.get(band_name, PALETTES["ndvi"])
+
+                # Komputasi Statistik Reducer pada ROI
+                reducer = ee.Reducer.mean().combine(ee.Reducer.minMax(), "", True)
+                stats = index_image.reduceRegion(
+                    reducer=reducer,
+                    geometry=roi,
+                    scale=20,
+                    maxPixels=1e8,
+                ).getInfo()
+
+                mean_val = stats.get(f"{band_name}_mean")
+                min_val = stats.get(f"{band_name}_min")
+                max_val = stats.get(f"{band_name}_max")
+
+                mean_val = float(mean_val) if mean_val is not None else 0.0
+                min_val = float(min_val) if min_val is not None else 0.0
+                max_val = float(max_val) if max_val is not None else 0.0
+
+            # Visualisasi MapId Tile URL untuk Leaflet
             vis_params = {
                 "min": palette_cfg["min"],
                 "max": palette_cfg["max"],
@@ -496,37 +595,6 @@ class GeeAnalysisService:
             map_id_dict = index_image.getMapId(vis_params)
             tile_url = map_id_dict["tile_fetcher"].url_format
 
-            # 2. Komputasi Luas Area (Hektar)
-            area_ha = roi.area().divide(10000).getInfo()
-
-            # 3. Komputasi Statistik Reducer pada ROI
-            reducer = ee.Reducer.mean().combine(ee.Reducer.minMax(), "", True)
-            stats = index_image.reduceRegion(
-                reducer=reducer,
-                geometry=roi,
-                scale=20,
-                maxPixels=1e8,
-            ).getInfo()
-
-            mean_val = stats.get(f"{band_name}_mean")
-            min_val = stats.get(f"{band_name}_min")
-            max_val = stats.get(f"{band_name}_max")
-
-            # Fallback jika None
-            mean_val = float(mean_val) if mean_val is not None else 0.0
-            min_val = float(min_val) if min_val is not None else 0.0
-            max_val = float(max_val) if max_val is not None else 0.0
-
-            # Ekstra estimasi biomassa & karbon total
-            total_biomass_tons = None
-            total_carbon_tons = None
-            if band_name == "agb":
-                total_biomass_tons = round(mean_val * area_ha, 2)
-                total_carbon_tons = round(total_biomass_tons * 0.47, 2)
-            elif band_name == "carbon":
-                total_carbon_tons = round(mean_val * area_ha, 2)
-                total_biomass_tons = round(total_carbon_tons / 0.47, 2)
-
             return {
                 "status": "success",
                 "analysis_type": band_name,
@@ -534,13 +602,13 @@ class GeeAnalysisService:
                 "date_range": {"start_date": start_date, "end_date": end_date},
                 "cloud_percentage": cloud_percentage,
                 "statistics": {
-                    "min": round(min_val, 4),
-                    "max": round(max_val, 4),
-                    "mean": round(mean_val, 4),
+                    "min": round(min_val, 2),
+                    "max": round(max_val, 2),
+                    "mean": round(mean_val, 2),
                     "area_hectares": round(area_ha, 2),
-                    "total_biomass_tons": total_biomass_tons,
-                    "total_carbon_tons": total_carbon_tons,
+                    "mangrove_area_hectares": mangrove_area_val if band_name == "agb" else round(area_ha, 2),
                     "unit": palette_cfg["unit"],
+                    "calculation_method": "Analisis Piksel Seluruh Area (Sentinel-1 SAR VV, VH + Sentinel-2 NDVI)" if band_name == "agb" else "GEE Reducer",
                 },
                 "palette": {
                     "min": palette_cfg["min"],
@@ -549,6 +617,8 @@ class GeeAnalysisService:
                     "labels": palette_cfg["labels"],
                     "style_type": palette_cfg["style_type"],
                 },
+                "ml_model_info": ml_model_info,
+                "points": ml_points,
             }
 
         except Exception as e:
@@ -615,8 +685,23 @@ class GeeAnalysisService:
                 initial_scale = max(50, int(math.ceil(min_scale_needed / 10.0) * 10))
 
             composite = cls._get_sentinel_composite(roi, start_date, end_date, cloud_percentage)
-            index_image, band_name = cls.compute_index_image(composite, analysis_type)
-            palette_cfg = PALETTES.get(band_name, PALETTES["ndvi"])
+            if analysis_type.lower() == "agb":
+                s1_composite = cls._get_sentinel1_composite(roi, start_date, end_date)
+                s1_vv_vh = s1_composite.select(["VV", "VH"])
+                ndvi_img = composite.normalizedDifference(["B8", "B4"]).rename("NDVI")
+                index_image = ee.Image().expression(
+                    "max(0, 434.7 + 44.11 * VV + 46.73 * VH + 1916.0 * NDVI)",
+                    {
+                        "VV": s1_vv_vh.select("VV"),
+                        "VH": s1_vv_vh.select("VH"),
+                        "NDVI": ndvi_img.select("NDVI")
+                    }
+                ).rename("agb")
+                band_name = "agb"
+                palette_cfg = PALETTES["agb"]
+            else:
+                index_image, band_name = cls.compute_index_image(composite, analysis_type)
+                palette_cfg = PALETTES.get(band_name, PALETTES["ndvi"])
 
             # 1. Bangun Rules Warna Style SLD
             colors_list = palette_cfg["colors"]

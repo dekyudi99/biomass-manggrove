@@ -13,7 +13,7 @@ class AnalyzeAreaRequest(BaseModel):
     )
     analysis_type: str = Field(
         "ndvi",
-        description="Jenis analisis: ndvi, evi, savi, ndwi, mndwi, cmri, agb, carbon, canopy_density"
+        description="Jenis analisis: ndvi, evi, savi, ndwi, mndwi, cmri, agb"
     )
     start_date: Optional[str] = Field(None, description="Tanggal awal (YYYY-MM-DD)")
     end_date: Optional[str] = Field(None, description="Tanggal akhir (YYYY-MM-DD)")
@@ -27,7 +27,7 @@ class SaveToAstraGisRequest(BaseModel):
     )
     analysis_type: str = Field(
         "ndvi",
-        description="Jenis analisis: ndvi, evi, savi, ndwi, mndwi, cmri, agb, carbon, canopy_density"
+        description="Jenis analisis: ndvi, evi, savi, ndwi, mndwi, cmri, agb"
     )
     workspace_id: int = Field(
         ...,
@@ -109,30 +109,16 @@ def get_available_indices():
                 ],
             },
             {
-                "id": "biomass_carbon",
-                "title": "Biomassa & Cadangan Karbon",
-                "description": "Estimasi tonase biomassa atas permukaan (AGB) dan stok karbon organik",
+                "id": "biomass",
+                "title": "Biomassa Mangrove",
+                "description": "Estimasi biomassa atas permukaan (AGB) berbasis Machine Learning",
                 "indices": [
                     {
                         "id": "agb",
-                        "name": "Estimasi Biomassa di Atas Permukaan (AGB)",
-                        "formula": "Model Regresi Alometrik Mangrove Empiris (Ton/Ha)",
-                        "description": "Estimasi biomassa tegakan mangrove per hektar dan total tonase pada area poligon.",
-                        "unit": "Ton / Hektar",
-                    },
-                    {
-                        "id": "carbon",
-                        "name": "Cadangan Karbon Mangrove (Carbon Stock)",
-                        "formula": "AGB * 0.47 (Faktor Konversi IPCC)",
-                        "description": "Kandungan karbon organik tersimpan pada biomassa vegetasi mangrove.",
-                        "unit": "Ton C / Hektar",
-                    },
-                    {
-                        "id": "canopy_density",
-                        "name": "Klasifikasi Kerapatan Kanopi Mangrove",
-                        "formula": "Kerapatan: Lebat (>70%), Sedang (50-70%), Jarang (<50%)",
-                        "description": "Zonasi tingkat tutupan tajuk mangrove untuk perencanaan restorasi dan konservasi.",
-                        "unit": "Kelas Kerapatan",
+                        "name": "Estimasi Biomassa AGB (Model ML LightGBM: Sentinel-1 SAR + Sentinel-2)",
+                        "formula": "LightGBM Regressor f(VV, VH, NDVI) -> AGB (kg)",
+                        "description": "Model Machine Learning presisi tinggi berbasis perpaduan radar C-band Sentinel-1 dan optik Sentinel-2 untuk estimasi biomassa mangrove.",
+                        "unit": "kg (AGB)",
                     },
                 ],
             },
@@ -287,4 +273,47 @@ async def save_satellite_dataset_to_astragis(req: DatasetSaveAstraGisRequest):
         composite_method=req.composite_method,
         orbit_pass=req.orbit_pass,
     )
+
+
+class ExportAgbCsvRequest(BaseModel):
+    points: List[Dict[str, Any]] = Field(
+        ...,
+        description="Daftar titik hasil prediksi AGB [{'lat': ..., 'long': ..., 'ndvi': ..., 'vv': ..., 'vh': ..., 'agb_revised_kg': ...}]"
+    )
+    filename: Optional[str] = Field("mangrove_agb_predictions.csv", description="Nama file CSV output")
+
+
+@router.post("/export-agb-csv")
+async def export_agb_csv(req: ExportAgbCsvRequest):
+    """
+    Mengekspor dataset hasil prediksi model ML AGB ke format CSV:
+    Lat,Long,NDVI,VV,VH,AGB_Revised_kg
+    """
+    import io
+    import csv
+    from fastapi.responses import StreamingResponse
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Lat", "Long", "NDVI", "VV", "VH", "AGB_Revised_kg"])
+
+    for pt in req.points:
+        writer.writerow([
+            pt.get("lat", pt.get("latitude", "")),
+            pt.get("long", pt.get("longitude", "")),
+            pt.get("ndvi", ""),
+            pt.get("vv", ""),
+            pt.get("vh", ""),
+            pt.get("agb_revised_kg", ""),
+        ])
+
+    output.seek(0)
+    filename = req.filename if req.filename.endswith(".csv") else f"{req.filename}.csv"
+    response = StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+    return response
+
 

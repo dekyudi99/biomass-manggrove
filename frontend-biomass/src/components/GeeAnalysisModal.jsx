@@ -22,6 +22,8 @@ import {
   SaveOutlined,
   ExperimentOutlined,
   CalendarOutlined,
+  DownloadOutlined,
+  TableOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useLanguage } from '../context/LanguageContext'
@@ -90,11 +92,10 @@ const GEE_SECTIONS = [
     ],
   },
   {
-    key: 'biomass_carbon',
+    key: 'biomass',
     titleKey: 'categoryBiomass',
     descKey: 'categoryBiomassDesc',
     icon: '🌳',
-    underDevelopment: true,
     indices: [
       {
         id: 'agb',
@@ -102,23 +103,6 @@ const GEE_SECTIONS = [
         tagKey: 'idxTag_agb',
         descKey: 'idxDesc_agb',
         defaultName: 'Mangrove_Biomass_AGB',
-        underDevelopment: true,
-      },
-      {
-        id: 'carbon',
-        nameKey: 'idxName_carbon',
-        tagKey: 'idxTag_carbon',
-        descKey: 'idxDesc_carbon',
-        defaultName: 'Mangrove_Carbon_Stock',
-        underDevelopment: true,
-      },
-      {
-        id: 'canopy_density',
-        nameKey: 'idxName_canopy_density',
-        tagKey: 'idxTag_canopy_density',
-        descKey: 'idxDesc_canopy_density',
-        defaultName: 'Mangrove_Canopy_Density',
-        underDevelopment: true,
       },
     ],
   },
@@ -175,6 +159,39 @@ const GeeAnalysisModal = ({
   const [layerName, setLayerName] = useState('')
   const [layerDescription, setLayerDescription] = useState('')
   const [isSavingAstraGis, setIsSavingAstraGis] = useState(false)
+
+  // Handle Unduh CSV Format Excel (Lat, Long, NDVI, VV, VH, AGB_Revised_kg)
+  const handleDownloadAgbCsv = () => {
+    if (!analysisResult?.points || analysisResult.points.length === 0) {
+      message.warning('Tidak ada data piksel AGB untuk diekspor.')
+      return
+    }
+
+    const headers = ['Lat', 'Long', 'NDVI', 'VV', 'VH', 'AGB_Revised_kg']
+    const rows = analysisResult.points.map((pt) => [
+      pt.lat,
+      pt.long,
+      pt.ndvi,
+      pt.vv,
+      pt.vh,
+      pt.agb_revised_kg,
+    ])
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute(
+      'download',
+      `mangrove_agb_predictions_${dayjs().format('YYYYMMDD_HHmmss')}.csv`
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    message.success('Dataset CSV hasil prediksi model AGB berhasil diunduh!')
+  }
 
   // Load Workspaces saat modal dibuka
   useEffect(() => {
@@ -245,6 +262,7 @@ const GeeAnalysisModal = ({
           analysisType: result.analysis_type,
           statistics: result.statistics,
           palette: result.palette,
+          points: result.points,
           opacity: 0.85,
         })
         // Otomatis nonaktifkan fill hijau AOI agar warna raster GEE murni dan jelas terlihat
@@ -320,6 +338,7 @@ const GeeAnalysisModal = ({
         analysisType: analysisResult.analysis_type,
         statistics: analysisResult.statistics,
         palette: analysisResult.palette,
+        points: analysisResult.points,
         opacity: 0.85,
       })
     }
@@ -694,54 +713,89 @@ const GeeAnalysisModal = ({
             </div>
 
             {/* GRID METRIK STATISTIK */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className={`grid gap-2 text-xs ${analysisResult.statistics.mangrove_area_hectares && analysisResult.analysis_type === 'agb' ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
                 <p className="text-[11px] text-gray-500 font-medium">{t('minValLabel')}</p>
                 <p className="font-mono font-bold text-gray-800 text-sm">
-                  {analysisResult.statistics.min}
+                  {analysisResult.statistics.min} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
                 </p>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
                 <p className="text-[11px] text-gray-500 font-medium">{t('maxValLabel')}</p>
                 <p className="font-mono font-bold text-gray-800 text-sm">
-                  {analysisResult.statistics.max}
+                  {analysisResult.statistics.max} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
                 </p>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
-                <p className="text-[11px] text-gray-500 font-medium">{t('meanValLabel')}</p>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  {analysisResult.analysis_type === 'agb' ? t('meanCanopyBiomassLabel') : t('meanValLabel')}
+                </p>
                 <p className="font-mono font-bold text-emerald-700 text-sm">
-                  {analysisResult.statistics.mean}
+                  {analysisResult.statistics.mean} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
                 </p>
               </div>
+              {analysisResult.statistics.mangrove_area_hectares && analysisResult.analysis_type === 'agb' && (
+                <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-300">
+                  <p className="text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                    <span>🌿</span> {t('mangroveAreaLabel')}
+                  </p>
+                  <p className="font-mono font-extrabold text-emerald-950 text-sm">
+                    {analysisResult.statistics.mangrove_area_hectares} Ha
+                  </p>
+                </div>
+              )}
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
-                <p className="text-[11px] text-gray-500 font-medium">Luas Area</p>
+                <p className="text-[11px] text-gray-500 font-medium">{t('totalAoiAreaLabel') || 'Luas Total Poligon'}</p>
                 <p className="font-mono font-bold text-gray-800 text-sm">
                   {analysisResult.statistics.area_hectares} Ha
                 </p>
               </div>
             </div>
 
-            {/* KHUSUS ESTIMASI BIOMASSA & KARBON TOTAL (Hanya pada kategori Biomass & Carbon) */}
-            {['agb', 'carbon'].includes(analysisResult.analysis_type) &&
-              analysisResult.statistics.total_biomass_tons !== null && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-emerald-200">
-                <div>
-                  <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
-                    <span>🪵</span> {t('totalBiomassLabel')}
-                  </p>
-                  <p className="font-bold text-emerald-800 text-base font-mono">
-                    {analysisResult.statistics.total_biomass_tons?.toLocaleString('id-ID')}{' '}
-                    <span className="text-xs font-normal text-gray-500">Ton</span>
-                  </p>
+            {/* KARTU MODEL MACHINE LEARNING AGB & UNDUH CSV (FORMAT EXCEL) */}
+            {analysisResult.analysis_type === 'agb' && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50/80 p-3.5 rounded-xl border border-emerald-300 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🤖</span>
+                    <div>
+                      <h5 className="font-bold text-xs text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                        <span>{t('mlModelBadge') || 'Model ML LightGBM Terverifikasi'}</span>
+                        <span className="text-[10px] bg-emerald-200 text-emerald-900 font-mono px-1.5 py-0.5 rounded-md font-semibold">
+                          best_mangrove_agb_model.joblib
+                        </span>
+                        <span className="text-[10px] bg-teal-100 text-teal-800 border border-teal-300 px-2 py-0.5 rounded-full font-semibold">
+                          ✨ {t('fullPixelMethodBadge')}
+                        </span>
+                      </h5>
+                      <p className="text-[11px] text-emerald-800/80">
+                        {t('mlFeaturesUsed') || 'Fitur Masukan: Sentinel-1 SAR (VV, VH) + Sentinel-2 MSI (NDVI)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tombol Unduh CSV Format Excel */}
+                  <button
+                    type="button"
+                    onClick={handleDownloadAgbCsv}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                    title={t('btnDownloadAgbCsvDesc') || 'Ekspor dataset titik Lat, Long, NDVI, VV, VH, AGB_Revised_kg'}
+                  >
+                    <DownloadOutlined className="text-sm font-extrabold" />
+                    <span>{t('btnDownloadAgbCsv') || 'Unduh Hasil Prediksi CSV (Format Excel)'}</span>
+                  </button>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
-                    <span>🌱</span> {t('carbonStockLabel')}
-                  </p>
-                  <p className="font-bold text-teal-800 text-base font-mono">
-                    {analysisResult.statistics.total_carbon_tons?.toLocaleString('id-ID')}{' '}
-                    <span className="text-xs font-normal text-gray-500">Ton C</span>
-                  </p>
+
+                {/* Info Gradasi Hijau & Penjelasan */}
+                <div className="bg-white/90 p-2.5 rounded-lg border border-emerald-200/80 text-[11px] flex flex-col gap-1 text-emerald-900">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-700 font-bold">🌿 {t('greenGradLegendNote') || 'Gradasi Hijau: Semakin besar nilainya maka warnanya semakin hijau pekat.'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium mt-0.5">
+                    <span>Rendah (&lt;250 kg)</span>
+                    <span className="h-2 flex-1 mx-2 rounded-full shadow-inner" style={{ background: 'linear-gradient(to right, #ffffd4, #d9f0a3, #78c679, #41ab5d, #238443, #004529)' }}></span>
+                    <span className="text-emerald-950 font-bold">Sangat Lebat (&gt;2.250 kg)</span>
+                  </div>
                 </div>
               </div>
             )}
