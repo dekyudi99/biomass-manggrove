@@ -163,11 +163,27 @@ const Dashboard = () => {
     }
   }
 
+  const getWmsLayersParam = (layer) => {
+    if (!layer) return ''
+    if (layer.wms_layers_param) return layer.wms_layers_param
+    const ws = layer.workspace_name
+    const lyrName = layer.geoserver_name || layer.table_name || layer.store_name || layer.layer_name
+    if (ws && lyrName) return `${ws}:${lyrName}`
+    return lyrName || ''
+  }
+
   const handleToggleLayer = (layer, isVisible) => {
     if (isVisible) {
+      const param = getWmsLayersParam(layer)
+      const enrichedLayer = {
+        ...layer,
+        wms_layers_param: param,
+        opacity: layer.opacity ?? 0.85,
+        styleVersion: layer.styleVersion || Date.now(),
+      }
       setVisibleLayers((prev) => [
         ...prev.filter((l) => l.id !== layer.id),
-        { ...layer, opacity: 0.85 },
+        enrichedLayer,
       ])
       if (layer.bbox) {
         handleZoomToLayer(layer)
@@ -219,30 +235,33 @@ const Dashboard = () => {
 
   // Helper resolve URL WMS:
   // Menggunakan base URL GeoServer dinamis dari environment (VITE_GEOSERVER_WMS_URL) tanpa hardcode
-  const resolveWmsUrl = (wmsUrl) => {
-    if (!wmsUrl) return wmsUrl
-    const envWms = import.meta.env.VITE_GEOSERVER_WMS_URL
-    if (envWms && typeof envWms === 'string' && envWms.trim() !== '') {
-      try {
-        const cleanEnv = envWms.trim().replace(/\/+$/, '')
-        const parsed = new URL(wmsUrl, window.location.origin)
-        const geoserverIdx = parsed.pathname.indexOf('/geoserver')
+  const resolveWmsUrl = (wmsUrl, workspaceName) => {
+    const envWms = import.meta.env.VITE_GEOSERVER_WMS_URL || 'http://localhost:8080/geoserver'
+    const cleanEnv = envWms.trim().replace(/\/+$/, '')
 
-        if (geoserverIdx !== -1) {
-          const afterGeoserver = parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
-          if (cleanEnv.endsWith('/geoserver')) {
-            return `${cleanEnv}${afterGeoserver}${parsed.search}`
-          }
-          const fromGeoserver = parsed.pathname.substring(geoserverIdx)
-          return `${cleanEnv}${fromGeoserver}${parsed.search}`
-        }
-
-        return `${cleanEnv}${parsed.pathname}${parsed.search}`
-      } catch {
-        return wmsUrl
+    if (!wmsUrl) {
+      if (workspaceName) {
+        return `${cleanEnv}/${workspaceName}/wms`
       }
+      return `${cleanEnv}/wms`
     }
-    return wmsUrl
+
+    try {
+      const parsed = new URL(wmsUrl, window.location.origin)
+      const geoserverIdx = parsed.pathname.indexOf('/geoserver')
+
+      if (geoserverIdx !== -1) {
+        const afterGeoserver = parsed.pathname.substring(geoserverIdx + '/geoserver'.length)
+        if (cleanEnv.endsWith('/geoserver')) {
+          return `${cleanEnv}${afterGeoserver}${parsed.search}`
+        }
+        return `${cleanEnv}${afterGeoserver}${parsed.search}`
+      }
+
+      return `${cleanEnv}${parsed.pathname}${parsed.search}`
+    } catch {
+      return wmsUrl || `${cleanEnv}/wms`
+    }
   }
 
   // Reverse Geocoding dengan bahasa dinamis sesuai pilihan user
@@ -418,38 +437,51 @@ const Dashboard = () => {
 
 
         {/* Render Layer WMS AstraGIS yang Aktif (dengan cache-busting instant saat style diubah) */}
-        {visibleLayers.map((layer) => (
-          <WMSTileLayer
-            key={`wms-layer-${layer.id}-${layer.wms_layers_param}-${layer.styleVersion || 1}`}
-            url={resolveWmsUrl(layer.wms_url)}
-            params={{
-              layers: layer.wms_layers_param,
-              format: 'image/png',
-              transparent: true,
-              version: '1.1.1',
-              _t: layer.styleVersion || 1,
-            }}
-            opacity={layer.opacity ?? 0.85}
-            zIndex={100}
-          />
-        ))}
+        {visibleLayers.map((layer) => {
+          const layersParam = getWmsLayersParam(layer)
+          const targetWmsUrl = resolveWmsUrl(layer.wms_url, layer.workspace_name)
+          if (!layersParam) return null
+
+          return (
+            <WMSTileLayer
+              key={`wms-layer-${layer.id}-${layersParam}-${layer.styleVersion || 1}`}
+              url={targetWmsUrl}
+              params={{
+                layers: layersParam,
+                format: 'image/png',
+                transparent: true,
+                version: '1.1.1',
+                _t: layer.styleVersion || 1,
+                styles: layer.style_name || layer.styles || '',
+              }}
+              opacity={layer.opacity ?? 0.85}
+              zIndex={100}
+            />
+          )
+        })}
 
         {/* Render Layer Group WMS AstraGIS yang Aktif */}
-        {visibleGroups.map((grp) => (
-          <WMSTileLayer
-            key={`wms-grp-${grp.id}-${grp.wms_layers_param}-${grp.styleVersion || 1}`}
-            url={resolveWmsUrl(grp.wms_url)}
-            params={{
-              layers: grp.wms_layers_param,
-              format: 'image/png',
-              transparent: true,
-              version: '1.1.1',
-              _t: grp.styleVersion || 1,
-            }}
-            opacity={grp.opacity ?? 0.85}
-            zIndex={100}
-          />
-        ))}
+        {visibleGroups.map((grp) => {
+          const grpParam = grp.wms_layers_param || grp.group_name || grp.name || ''
+          const targetGrpWmsUrl = resolveWmsUrl(grp.wms_url, grp.workspace_name)
+          if (!grpParam) return null
+
+          return (
+            <WMSTileLayer
+              key={`wms-grp-${grp.id}-${grpParam}-${grp.styleVersion || 1}`}
+              url={targetGrpWmsUrl}
+              params={{
+                layers: grpParam,
+                format: 'image/png',
+                transparent: true,
+                version: '1.1.1',
+                _t: grp.styleVersion || 1,
+              }}
+              opacity={grp.opacity ?? 0.85}
+              zIndex={100}
+            />
+          )
+        })}
 
         {/* 1. RENDER TITIK PIN LOKASI */}
         {selectedPoint && (

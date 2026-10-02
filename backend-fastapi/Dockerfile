@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install python dependencies first for layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install -U pip && \
+    pip install -r requirements.txt
 
 # Copy source code
 COPY . .

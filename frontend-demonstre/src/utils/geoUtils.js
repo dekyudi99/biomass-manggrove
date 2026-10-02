@@ -33,14 +33,34 @@ Object.entries(BUILTIN_PROJECTIONS).forEach(([code, def]) => {
 // Cache definisi proj4 dari internet agar tidak fetch berkali-kali untuk EPSG yang sama
 const epsgCache = { ...BUILTIN_PROJECTIONS }
 
+export function normalizeBbox(bbox) {
+  if (!bbox) return null
+  if (Array.isArray(bbox) && bbox.length >= 4) {
+    const parsed = bbox.map(Number)
+    return parsed.some(isNaN) ? null : parsed
+  }
+  if (typeof bbox === 'object') {
+    const minx = bbox.left ?? bbox.minx ?? bbox.minLng ?? bbox.west ?? bbox.minX
+    const miny = bbox.bottom ?? bbox.miny ?? bbox.minLat ?? bbox.south ?? bbox.minY
+    const maxx = bbox.right ?? bbox.maxx ?? bbox.maxLng ?? bbox.east ?? bbox.maxX
+    const maxy = bbox.top ?? bbox.maxy ?? bbox.maxLat ?? bbox.north ?? bbox.maxY
+    if (minx != null && miny != null && maxx != null && maxy != null) {
+      const arr = [Number(minx), Number(miny), Number(maxx), Number(maxy)]
+      return arr.some(isNaN) ? null : arr
+    }
+  }
+  return null
+}
+
 /**
  * Konversi Bounding Box (BBox) dari sembarang proyeksi EPSG ke WGS84 (EPSG:4326 - lat/lng)
- * @param {Array<number>} bbox - [minx, miny, maxx, maxy]
+ * @param {Array<number>|Object} rawBbox - [minx, miny, maxx, maxy] atau {left, bottom, right, top} / {minx, miny, maxx, maxy}
  * @param {number|string} epsg - kode EPSG (misal 32647, 3857, 4326)
  * @returns {Promise<{minLng: number, minLat: number, maxLng: number, maxLat: number}|null>}
  */
-export async function bboxToWGS84(bbox, epsg) {
-  if (!Array.isArray(bbox) || bbox.length < 4 || bbox.some((v) => v == null || isNaN(v))) {
+export async function bboxToWGS84(rawBbox, epsg) {
+  const bbox = normalizeBbox(rawBbox)
+  if (!bbox) {
     return null
   }
 

@@ -18,7 +18,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend-biomass
+      context: ./frontend-demonstre
       dockerfile: Dockerfile
     container_name: biomass_frontend
     restart: unless-stopped
@@ -26,10 +26,10 @@ services:
       - "5173:5173"
     volumes:
       # Mount folder frontend lokal ke /app di container
-      - ./frontend-biomass:/app
+      - ./frontend-demonstre:/app
       # Anonymous volume agar node_modules di dalam container tidak tertimpa oleh host
       - /app/node_modules
     env_file:
-      - ./frontend-biomass/.env
+      - ./frontend-demonstre/.env
     depends_on:
       - backend

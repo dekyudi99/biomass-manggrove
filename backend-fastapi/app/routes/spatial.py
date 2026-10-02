@@ -41,12 +41,12 @@ async def create_workspace(payload: Dict[str, Any] = Body(...)):
 
 
 @router.put("/workspaces/{workspace_id}")
-async def update_workspace(workspace_id: int, payload: Dict[str, Any] = Body(...)):
+async def update_workspace(workspace_id: str, payload: Dict[str, Any] = Body(...)):
     return await AstraGISService.update_workspace(workspace_id, payload)
 
 
 @router.delete("/workspaces/{workspace_id}")
-async def delete_workspace(workspace_id: int):
+async def delete_workspace(workspace_id: str):
     return await AstraGISService.delete_workspace(workspace_id)
 
 
@@ -82,19 +82,27 @@ async def publish_layer(
     )
 
 
+@router.get("/layers/{layer_id}/raster-info")
+async def get_raster_info(layer_id: str):
+    """
+    Mendapatkan statistik raster (min, max, mean, std) dan saved symbology dari GeoServer Microservice.
+    """
+    return await AstraGISService.get_raster_info(layer_id)
+
+
 @router.post("/layers/{layer_id}/style")
-async def update_layer_style(layer_id: int, payload: Dict[str, Any] = Body(...)):
+async def update_layer_style(layer_id: str, payload: Dict[str, Any] = Body(...)):
     return await AstraGISService.update_layer_style(layer_id, payload)
 
 
 @router.delete("/layers/{layer_id}")
-async def delete_layer(layer_id: int):
+async def delete_layer(layer_id: str):
     return await AstraGISService.delete_layer(layer_id)
 
 
 @router.get("/layers/{layer_id}/download")
 async def download_layer(
-    layer_id: int,
+    layer_id: str,
     format: str = Query("tiff", pattern="^(tiff|tif|geotiff|png)$"),
     styled: bool = Query(True),
     width: Optional[int] = Query(None),
@@ -127,12 +135,12 @@ async def create_layer_group(payload: Dict[str, Any] = Body(...)):
 
 
 @router.put("/layer-groups/{group_id}")
-async def update_layer_group(group_id: int, payload: Dict[str, Any] = Body(...)):
+async def update_layer_group(group_id: str, payload: Dict[str, Any] = Body(...)):
     return await AstraGISService.update_layer_group(group_id, payload)
 
 
 @router.delete("/layer-groups/{group_id}")
-async def delete_layer_group(group_id: int):
+async def delete_layer_group(group_id: str):
     return await AstraGISService.delete_layer_group(group_id)
 
 
