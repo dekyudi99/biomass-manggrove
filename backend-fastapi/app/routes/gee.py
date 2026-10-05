@@ -29,10 +29,7 @@ class SaveToAstraGisRequest(BaseModel):
         "ndvi",
         description="Jenis analisis: ndvi, evi, savi, ndwi, mndwi, cmri, agb"
     )
-    workspace_id: int = Field(
-        ...,
-        description="ID workspace AstraGIS tujuan tempat layer disimpan"
-    )
+    workspace_id: Optional[str] = Field(None, description="Legacy field; target workspace ditentukan backend")
     layer_name: str = Field(
         ...,
         min_length=1,
@@ -150,7 +147,6 @@ async def save_to_astragis(req: SaveToAstraGisRequest):
     return await GeeAnalysisService.save_to_astragis(
         coordinates=req.coordinates,
         analysis_type=req.analysis_type,
-        workspace_id=req.workspace_id,
         layer_name=req.layer_name,
         description=req.description,
         start_date=req.start_date,
@@ -199,7 +195,7 @@ class DatasetSaveAstraGisRequest(BaseModel):
     )
     satellite: str = Field("sentinel2", description="ID satelit: sentinel2, landsat89, sentinel1")
     bands: Optional[List[str]] = Field(None, description="Daftar band yang dipilih")
-    workspace_id: int = Field(..., description="ID workspace AstraGIS tujuan")
+    workspace_id: Optional[str] = Field(None, description="Legacy field; target workspace ditentukan backend")
     layer_name: str = Field(..., min_length=1, max_length=150, description="Nama layer di AstraGIS")
     description: Optional[str] = Field("", description="Deskripsi singkat dataset")
     start_date: Optional[str] = Field(None, description="Tanggal awal (YYYY-MM-DD)")
@@ -264,7 +260,6 @@ async def save_satellite_dataset_to_astragis(req: DatasetSaveAstraGisRequest):
         coordinates=req.coordinates,
         satellite=req.satellite,
         bands=req.bands,
-        workspace_id=req.workspace_id,
         layer_name=req.layer_name,
         description=req.description,
         start_date=req.start_date,

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Modal, Tabs, Select, Input, Button, message, Tooltip, Tag } from 'antd'
+import { useState, useEffect } from 'react'
+import { Modal, Tabs, Input, message, Tag } from 'antd'
 import {
   DownloadOutlined,
   CloudUploadOutlined,
@@ -17,7 +17,6 @@ import {
   exportAoiToShapefile,
   triggerBrowserDownload,
 } from '../utils/aoiParser'
-import workspaceApi from '../api/WorkspaceApi'
 import geeApi from '../api/GeeApi'
 
 const AoiExportModal = ({

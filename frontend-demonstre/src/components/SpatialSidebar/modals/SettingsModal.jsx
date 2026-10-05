@@ -15,7 +15,7 @@ const SettingsModal = ({ open, onClose }) => {
     try {
       const res = await axiosClient.get('/health')
       if (res.data?.status === 'connected') {
-        setBackendStatus({ success: true, url: res.data?.astragis_url })
+        setBackendStatus({ success: true, url: res.data?.geoserver_microservice_url })
       } else {
         setBackendStatus({
           success: false,
@@ -68,7 +68,7 @@ const SettingsModal = ({ open, onClose }) => {
           />
         </div>
 
-        {/* Info Koneksi S2S Backend */}
+        {/* Status koneksi GeoServer Microservice; API key hanya berada di backend. */}
         <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-gray-700">
@@ -104,14 +104,14 @@ const SettingsModal = ({ open, onClose }) => {
               </p>
               <p className="text-[10px] text-gray-500 font-mono truncate">
                 {backendStatus?.success
-                  ? `${t('s2sEndpoint')} ${backendStatus.url}`
+                  ? `${t('geoserverMicroserviceEndpoint')} ${backendStatus.url}`
                   : backendStatus?.error || t('checkingConnection')}
               </p>
             </div>
           </div>
 
           <p className="text-[10px] text-gray-400 italic">
-            {t('s2sSecurityNote')}
+            {t('geoserverMicroserviceSecurityNote')}
           </p>
         </div>
 

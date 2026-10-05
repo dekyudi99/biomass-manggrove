@@ -103,10 +103,15 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
   useEffect(() => {
     if (!open || !layer) return
 
+    let cancelled = false
     setLoadingInfo(true)
+    setStats(null)
+    setClasses([])
+    setLastSavedTime(null)
     layerApi
       .getRasterInfo(layer.id)
       .then((res) => {
+        if (cancelled) return
         const data = res?.data
         if (data?.statistics) {
           setStats(data.statistics)
@@ -118,7 +123,14 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
           setMethod(sym.classification_method || 'jenks')
           setNClasses(sym.classes_count || sym.classes.length)
           setColorRamp(sym.color_ramp || 'greens')
-          setClasses(sym.classes)
+          setClasses(sym.classes.map((cls) => ({
+            ...cls,
+            quantity: Number(cls.quantity ?? cls.max ?? 0),
+            opacity: Number(cls.opacity ?? 1),
+            label: cls.label || (cls.min !== undefined && cls.max !== undefined
+              ? `${cls.min} - ${cls.max}`
+              : String(cls.quantity ?? cls.max ?? '')),
+          })))
           setLastSavedTime(sym.updated_at)
         } else {
           setLastSavedTime(null)
@@ -126,12 +138,17 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
         }
       })
       .catch((err) => {
+        if (cancelled) return
         console.warn('Gagal memuat raster info GeoServer:', err)
         handleRunClassification(10, 'jenks', 'greens')
       })
       .finally(() => {
-        setLoadingInfo(false)
+        if (!cancelled) setLoadingInfo(false)
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [open, layer?.id])
 
   // Menjalankan algoritma klasifikasi (Jenks / Equal Interval / Quantile)
@@ -294,7 +311,19 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
       message.success(res?.data?.detail || 'Klasifikasi & style layer berhasil disimpan di GeoServer!')
       queryClient.invalidateQueries({ queryKey: ['layers'] })
       if (onStyleApplied && layer) {
-        onStyleApplied(layer.id)
+        onStyleApplied(layer.id, {
+          style_name: layer.style_name || layer.symbology?.style_name || `style_${layer.geoserver_name || layer.store_name || layer.layer_name}`,
+          style_type: styleType,
+          classification_method: method,
+          classes_count: classes.length,
+          color_ramp: colorRamp,
+          updated_at: new Date().toISOString(),
+          classes: classes.map((cls) => ({
+            ...cls,
+            quantity: Number(cls.quantity ?? cls.max ?? 0),
+            opacity: Number(cls.opacity ?? 1),
+          })),
+        })
       }
       onClose()
     },

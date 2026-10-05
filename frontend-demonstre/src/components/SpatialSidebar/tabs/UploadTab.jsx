@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Input, Select, Button, Progress, message } from 'antd'
+import { useState } from 'react'
+import { Input, Button, Progress, message } from 'antd'
 import { UploadOutlined, InboxOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import layerApi from '../../../api/LayerApi'
@@ -31,22 +31,15 @@ const getFormatInfo = (filename) => {
   return null
 }
 
-const UploadTab = ({ workspaces = [], onUploadSuccess }) => {
+const UploadTab = ({ onUploadSuccess }) => {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
 
   const [file, setFile] = useState(null)
   const [layerName, setLayerName] = useState('')
   const [description, setDescription] = useState('')
-  const [workspaceId, setWorkspaceId] = useState(null)
   const [progress, setProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
-
-  useEffect(() => {
-    if (workspaces.length > 0 && !workspaceId) {
-      setWorkspaceId(workspaces[0].id)
-    }
-  }, [workspaces, workspaceId])
 
   const handleFileDrop = (e) => {
     e.preventDefault()
@@ -75,11 +68,6 @@ const UploadTab = ({ workspaces = [], onUploadSuccess }) => {
       message.warning(t('layerName') + ' ' + (t('fieldRequired') || 'wajib diisi.'))
       return
     }
-    if (!workspaceId) {
-      message.warning(t('selectTargetWorkspace'))
-      return
-    }
-
     setIsUploading(true)
     setProgress(0)
 
@@ -88,8 +76,6 @@ const UploadTab = ({ workspaces = [], onUploadSuccess }) => {
       formData.append('file', file)
       formData.append('layer_name', layerName.trim())
       formData.append('description', description.trim())
-      formData.append('workspace_id', String(workspaceId))
-
       const res = await layerApi.create(formData, (percent) => {
         setProgress(percent)
       })
@@ -191,23 +177,6 @@ const UploadTab = ({ workspaces = [], onUploadSuccess }) => {
           onChange={(e) => setLayerName(e.target.value)}
           size="small"
           className="rounded-lg text-xs"
-        />
-      </div>
-
-      {/* Workspace Selection */}
-      <div>
-        <span className="font-semibold text-gray-700 block mb-1">
-          {t('targetWorkspace')} <span className="text-red-500">*</span>:
-        </span>
-        <Select
-          value={workspaceId}
-          onChange={setWorkspaceId}
-          size="small"
-          className="w-full text-xs"
-          options={workspaces.map((w) => ({
-            value: w.id,
-            label: `${w.name} (${w.ws_name})`,
-          }))}
         />
       </div>
 

@@ -220,10 +220,12 @@ const Dashboard = () => {
   }
 
   // Callback saat style SLD layer diperbarui di GeoServer -> update styleVersion agar Leaflet memuat ulang tile tanpa reload halaman
-  const handleStyleApplied = (layerId) => {
+  const handleStyleApplied = (layerId, symbology) => {
     const timestamp = Date.now()
     setVisibleLayers((prev) =>
-      prev.map((l) => (l.id === layerId ? { ...l, styleVersion: timestamp } : l))
+      prev.map((l) => (l.id === layerId
+        ? { ...l, ...(symbology ? { symbology } : {}), styleVersion: timestamp }
+        : l))
     )
   }
 
@@ -854,6 +856,50 @@ const Dashboard = () => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Legend untuk raster WMS yang sedang aktif */}
+      {visibleLayers.some((layer) => {
+        const classes = layer.symbology?.classes || layer.saved_symbology?.classes
+        return (layer.layer_type || layer.type) === 'raster' && classes?.length
+      }) && (
+        <div className="absolute bottom-6 left-3 sm:left-6 z-[900] bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-blue-200 max-w-[min(22rem,calc(100vw-1.5rem))] max-h-[40vh] overflow-y-auto text-xs">
+          <h3 className="font-bold text-gray-800 mb-2 pb-1.5 border-b border-gray-100">
+            Legenda Layer WMS
+          </h3>
+          <div className="space-y-3">
+            {visibleLayers.map((layer) => {
+              const classes = layer.symbology?.classes || layer.saved_symbology?.classes || []
+              if ((layer.layer_type || layer.type) !== 'raster' || classes.length === 0) return null
+
+              return (
+                <section key={`legend-${layer.id}`}>
+                  <h4 className="font-semibold text-gray-700 truncate mb-1">
+                    {layer.layer_name || layer.display_name || layer.id}
+                  </h4>
+                  <div className="space-y-1">
+                    {classes.map((item, index) => (
+                      <div key={`${layer.id}-legend-${index}`} className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-3 h-3 rounded-sm shrink-0 border border-black/10"
+                          style={{
+                            backgroundColor: item.opacity === 0 ? 'transparent' : item.color || '#9ca3af',
+                            opacity: Number(item.opacity ?? 1),
+                          }}
+                        />
+                        <span className="text-gray-600 truncate">
+                          {item.label || (item.min !== undefined && item.max !== undefined
+                            ? `${item.min} – ${item.max}`
+                            : `≤ ${item.quantity ?? item.max ?? ''}`)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
         </div>
       )}
 

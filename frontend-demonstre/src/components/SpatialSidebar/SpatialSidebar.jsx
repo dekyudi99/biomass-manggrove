@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import {
   AppstoreOutlined,
-  FolderOpenOutlined,
   FolderOutlined,
   UploadOutlined,
   SettingOutlined,
   CloseOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import workspaceApi from '../../api/WorkspaceApi'
 import layerApi from '../../api/LayerApi'
 import { useLanguage } from '../../context/LanguageContext'
 
 import LayersTab from './tabs/LayersTab'
-import WorkspacesTab from './tabs/WorkspacesTab'
 import GroupsTab from './tabs/GroupsTab'
 import UploadTab from './tabs/UploadTab'
 
@@ -55,15 +52,6 @@ const SpatialSidebar = ({
   const [selectedLayerForStyle, setSelectedLayerForStyle] = useState(null)
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false)
 
-  // Fetch workspaces & layers for dropdowns/modals
-  const { data: workspacesData } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: async () => {
-      const res = await workspaceApi.getAll()
-      return res.data?.data || []
-    },
-  })
-
   const { data: layersData } = useQuery({
     queryKey: ['layers'],
     queryFn: async () => {
@@ -72,12 +60,10 @@ const SpatialSidebar = ({
     },
   })
 
-  const workspaces = workspacesData || []
   const layers = layersData || []
 
   const TABS = [
     { id: 'layers', label: t('tabLayers'), icon: <AppstoreOutlined /> },
-    { id: 'workspaces', label: t('tabWorkspaces'), icon: <FolderOpenOutlined /> },
     { id: 'groups', label: t('tabGroups'), icon: <FolderOutlined /> },
     { id: 'upload', label: t('tabUpload'), icon: <UploadOutlined /> },
   ]
@@ -156,22 +142,18 @@ const SpatialSidebar = ({
               />
             )}
 
-            {activeTab === 'workspaces' && <WorkspacesTab />}
-
             {activeTab === 'groups' && (
               <GroupsTab
                 visibleGroups={visibleGroups}
                 onToggleGroup={onToggleGroup}
                 onChangeGroupOpacity={onChangeGroupOpacity}
                 onZoomToGroup={onZoomToGroup}
-                workspaces={workspaces}
                 layers={layers}
               />
             )}
 
             {activeTab === 'upload' && (
               <UploadTab
-                workspaces={workspaces}
                 onUploadSuccess={() => setActiveTab('layers')}
               />
             )}
@@ -187,8 +169,8 @@ const SpatialSidebar = ({
           setIsStyleModalOpen(false)
           setSelectedLayerForStyle(null)
         }}
-        onStyleApplied={(layerId) => {
-          if (onStyleApplied) onStyleApplied(layerId)
+        onStyleApplied={(layerId, symbology) => {
+          if (onStyleApplied) onStyleApplied(layerId, symbology)
         }}
       />
 

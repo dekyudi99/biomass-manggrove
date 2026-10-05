@@ -28,7 +28,6 @@ import {
 import dayjs from 'dayjs'
 import { useLanguage } from '../context/LanguageContext'
 import geeApi from '../api/GeeApi'
-import workspaceApi from '../api/WorkspaceApi'
 
 const { RangePicker } = DatePicker
 
@@ -153,9 +152,6 @@ const GeeAnalysisModal = ({
   const [analysisResult, setAnalysisResult] = useState(null)
 
   // State Simpan ke AstraGIS
-  const [workspaces, setWorkspaces] = useState([])
-  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false)
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
   const [layerName, setLayerName] = useState('')
   const [layerDescription, setLayerDescription] = useState('')
   const [isSavingAstraGis, setIsSavingAstraGis] = useState(false)
@@ -193,31 +189,13 @@ const GeeAnalysisModal = ({
     message.success('Dataset CSV hasil prediksi model AGB berhasil diunduh!')
   }
 
-  // Load Workspaces saat modal dibuka
+  // Siapkan nama layer saat modal dibuka.
   useEffect(() => {
     if (isOpen) {
-      loadWorkspaces()
-      // Generate default layer name
       const nowStr = dayjs().format('YYYYMMDD')
       setLayerName(`Mangrove_${selectedIndex.toUpperCase()}_${nowStr}`)
     }
   }, [isOpen, selectedIndex])
-
-  const loadWorkspaces = async () => {
-    setIsLoadingWorkspaces(true)
-    try {
-      const res = await workspaceApi.getAll()
-      const wsList = res.data?.data || res.data || []
-      setWorkspaces(wsList)
-      if (wsList.length > 0 && !selectedWorkspaceId) {
-        setSelectedWorkspaceId(wsList[0].id)
-      }
-    } catch (err) {
-      console.warn('Failed loading workspaces:', err)
-    } finally {
-      setIsLoadingWorkspaces(false)
-    }
-  }
 
   // Handle Quick Date Presets
   const setQuickDate = (months) => {
@@ -282,10 +260,6 @@ const GeeAnalysisModal = ({
 
   // Handle Simpan ke AstraGIS
   const handleSaveToAstraGis = async () => {
-    if (!selectedWorkspaceId) {
-      message.warning(t('selectTargetWorkspace'))
-      return
-    }
     if (!layerName.trim()) {
       message.warning('Harap isi nama layer.')
       return
@@ -299,7 +273,6 @@ const GeeAnalysisModal = ({
       const payload = {
         coordinates: areaPoints,
         analysis_type: selectedIndex,
-        workspace_id: selectedWorkspaceId,
         layer_name: layerName.trim(),
         description:
           layerDescription ||
@@ -480,7 +453,7 @@ const GeeAnalysisModal = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 gap-2">
                 {sec.indices.map((idx) => {
                   const isUnderDev = sec.underDevelopment || idx.underDevelopment
                   const isSelected = selectedIndex === idx.id
@@ -826,24 +799,7 @@ const GeeAnalysisModal = ({
                 {t('saveToAstraGis')}
               </h5>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Target Workspace */}
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 block mb-1">
-                    {t('selectTargetWorkspace')} *
-                  </label>
-                  <Select
-                    className="w-full text-xs"
-                    value={selectedWorkspaceId}
-                    onChange={setSelectedWorkspaceId}
-                    loading={isLoadingWorkspaces}
-                    options={workspaces.map((ws) => ({
-                      label: `${ws.name || ws.ws_name} (${ws.ws_name})`,
-                      value: ws.id,
-                    }))}
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 gap-2">
                 {/* Nama Layer */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-600 block mb-1">

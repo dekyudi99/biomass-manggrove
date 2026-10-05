@@ -8,8 +8,8 @@ from fastapi import HTTPException
 load_dotenv()
 
 
-def get_astragis_url() -> str:
-    raw_url = os.getenv("ASTRAGIS_API_URL", "http://localhost:8005").rstrip("/")
+def get_geoserver_microservice_url() -> str:
+    raw_url = os.getenv("GEOSERVER_MICROSERVICE_URL", "http://localhost:8005").rstrip("/")
     if "host.docker.internal" in raw_url:
         try:
             import socket
@@ -19,13 +19,19 @@ def get_astragis_url() -> str:
     return raw_url
 
 
-def get_astragis_key() -> str:
-    return os.getenv("ASTRAGIS_API_KEY", "")
+def get_geoserver_microservice_api_key() -> str:
+    api_key = os.getenv("GEOSERVER_MICROSERVICE_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="GEOSERVER_MICROSERVICE_API_KEY belum dikonfigurasi pada backend Biomass.",
+        )
+    return api_key
 
 
-def get_astragis_timeout() -> float:
+def get_geoserver_microservice_timeout() -> float:
     try:
-        return float(os.getenv("ASTRAGIS_TIMEOUT", "60.0"))
+        return float(os.getenv("GEOSERVER_MICROSERVICE_TIMEOUT", "60.0"))
     except (ValueError, TypeError):
         return 60.0
 
@@ -35,11 +41,7 @@ def get_geoserver_wms_url() -> str:
 
 
 def get_headers() -> dict:
-    headers = {}
-    key = get_astragis_key()
-    if key:
-        headers["X-API-Key"] = key
-    return headers
+    return {"X-API-Key": get_geoserver_microservice_api_key()}
 
 
 def rewrite_wms_url(url: str) -> str:
@@ -85,10 +87,10 @@ async def make_request(method: str, endpoint: str, **kwargs):
     """
     Helper untuk melakukan request ke GeoServer Microservice (/api/v1) dengan menyertakan X-API-Key.
     """
-    url = f"{get_astragis_url()}{endpoint}"
+    url = f"{get_geoserver_microservice_url()}{endpoint}"
     headers = kwargs.pop("headers", {})
     headers.update(get_headers())
-    timeout = get_astragis_timeout()
+    timeout = get_geoserver_microservice_timeout()
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
@@ -113,22 +115,22 @@ async def make_request(method: str, endpoint: str, **kwargs):
             )
 
 
-class AstraGISService:
+class GeoServerService:
     @staticmethod
     async def health_check():
-        current_url = get_astragis_url()
+        current_url = get_geoserver_microservice_url()
         try:
             data = await make_request("GET", "/api/v1/health")
             return {
                 "status": "connected",
-                "microservice_url": current_url,
+                "geoserver_microservice_url": current_url,
                 "geoserver_wms_url": get_geoserver_wms_url() or "default",
                 "data": data,
             }
         except Exception as e:
             return {
                 "status": "error",
-                "microservice_url": current_url,
+                "geoserver_microservice_url": current_url,
                 "geoserver_wms_url": get_geoserver_wms_url() or "default",
                 "error": str(e),
             }
@@ -136,30 +138,96 @@ class AstraGISService:
     # --- Workspaces ---
     @staticmethod
     async def get_workspaces():
-        return await make_request("GET", "/api/v1/workspaces")
+        response = await make_request("GET", "/api/v1/workspaces")
+        workspaces = response.get("data", []) if isinstance(response, dict) else response
+        normalized = []
+        for workspace in workspaces if isinstance(workspaces, list) else []:
+            if not isinstance(workspace, dict):
+                continue
+            workspace_name = (
+                workspace.get("workspace_name")
+                or workspace.get("ws_name")
+                or workspace.get("name")
+            )
+            if not workspace_name:
+                continue
+            normalized.append({
+                **workspace,
+                "id": workspace.get("id") or workspace_name,
+                "name": workspace.get("display_name") or workspace.get("name") or workspace_name,
+                "ws_name": workspace_name,
+                "workspace_name": workspace_name,
+            })
+        return normalized
 
     @staticmethod
-    async def create_workspace(payload: dict):
-        display_name = payload.get("display_name") or payload.get("name") or payload.get("name_workspace") or ""
-        workspace_name = payload.get("workspace_name") or payload.get("ws_name")
-        visibility = payload.get("visibility", "private")
-        body = {"display_name": display_name, "visibility": visibility}
-        if workspace_name:
-            body["workspace_name"] = workspace_name
-        return await make_request("POST", "/api/v1/workspaces", json=body)
+    async def get_target_workspace() -> Dict[str, Any]:
+        """Resolve one backend-controlled workspace for all Biomass publishes.
 
-    @staticmethod
-    async def update_workspace(workspace_id: Any, payload: dict):
-        return {"success": True, "id": str(workspace_id), "detail": "Workspace metadata updated."}
+        GEOSERVER_WORKSPACE_NAME is preferred. When it is not configured, an
+        API key with exactly one visible workspace is unambiguous and safe to
+        use. Never silently select one when the key sees multiple workspaces.
+        """
+        workspaces = await GeoServerService.get_workspaces()
+        configured_name = os.getenv("GEOSERVER_WORKSPACE_NAME", "").strip()
 
-    @staticmethod
-    async def delete_workspace(workspace_id: Any):
-        return await make_request("DELETE", f"/api/v1/workspaces/{workspace_id}?recurse=true")
+        if configured_name:
+            for workspace in workspaces:
+                technical_name = workspace.get("workspace_name") or workspace.get("ws_name")
+                if technical_name == configured_name:
+                    return workspace
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Workspace Biomass yang dikonfigurasi tidak tersedia untuk API key ini. "
+                    "Pastikan GEOSERVER_WORKSPACE_NAME cocok dengan workspace milik API key."
+                ),
+            )
+
+        if len(workspaces) == 1:
+            return workspaces[0]
+        if not workspaces:
+            raise HTTPException(
+                status_code=503,
+                detail="API key GeoServer belum memiliki workspace. Minta administrator menyiapkan workspace Biomass.",
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "API key GeoServer memiliki beberapa workspace. Administrator harus menetapkan "
+                "GEOSERVER_WORKSPACE_NAME di backend Biomass."
+            ),
+        )
 
     # --- Layers ---
     @staticmethod
     async def get_layers(params: dict = None):
-        return await make_request("GET", "/api/v1/layers/my-layers", params=params or {})
+        response = await make_request("GET", "/api/v1/layers/my-layers", params=params or {})
+        layers = response.get("data", []) if isinstance(response, dict) else response
+        if not isinstance(layers, list):
+            layers = []
+        for layer in layers:
+            if not isinstance(layer, dict):
+                continue
+            layer_type = layer.get("layer_type") or layer.get("type") or layer.get("layerType")
+            layer["layer_type"] = layer_type
+            layer["type"] = layer.get("type") or layer_type
+            layer["geoserver_name"] = (
+                layer.get("geoserver_name")
+                or layer.get("table_name")
+                or layer.get("store_name")
+                or layer.get("layer_name")
+            )
+            if layer.get("workspace_name") and layer.get("geoserver_name"):
+                layer["wms_layers_param"] = layer.get("wms_layers_param") or (
+                    f"{layer['workspace_name']}:{layer['geoserver_name']}"
+                )
+            symbology = layer.get("symbology") or layer.get("saved_symbology")
+            if symbology:
+                layer["symbology"] = symbology
+                if isinstance(symbology, dict):
+                    layer["style_name"] = layer.get("style_name") or symbology.get("style_name")
+        return {"success": True, "total": len(layers), "data": layers}
 
     @staticmethod
     async def publish_layer(file_bytes: bytes, filename: str, content_type: str, form_data: dict):
@@ -167,17 +235,19 @@ class AstraGISService:
         ext = os.path.splitext(filename or "")[1].lower()
         endpoint = "/api/v1/layers/publish-vector" if ext in VECTOR_EXTENSIONS else "/api/v1/layers/publish-raster"
         files = {"file": (filename, file_bytes, content_type)}
-        normalized_data = dict(form_data)
-        ws = normalized_data.get("workspace_name") or normalized_data.get("workspace_id")
-        if ws:
-            normalized_data["workspace_name"] = str(ws)
+        target_workspace = await GeoServerService.get_target_workspace()
+        normalized_data = {
+            key: value
+            for key, value in dict(form_data).items()
+            if key not in {"workspace_name", "workspace_id"}
+        }
+        normalized_data["workspace_name"] = target_workspace["workspace_name"]
         return await make_request("POST", endpoint, files=files, data=normalized_data)
 
     @staticmethod
     async def publish_from_url(payload: dict):
         # Fallback helper: jika ada url, unduh berkas lalu unggah via multipart
         file_url = payload.get("file_url") or payload.get("url")
-        workspace_name = payload.get("workspace_name") or payload.get("workspace_id", "default")
         layer_name = payload.get("layer_name", "analysis_layer")
         if not file_url:
             raise HTTPException(status_code=400, detail="file_url diperlukan untuk publikasi dari URL.")
@@ -190,11 +260,11 @@ class AstraGISService:
 
         filename = os.path.basename(urlparse(file_url).path) or f"{layer_name}.tif"
         content_type = resp.headers.get("content-type", "application/octet-stream")
-        return await AstraGISService.publish_layer(
+        return await GeoServerService.publish_layer(
             file_bytes=file_bytes,
             filename=filename,
             content_type=content_type,
-            form_data={"workspace_name": workspace_name, "layer_name": layer_name}
+            form_data={"layer_name": layer_name}
         )
 
     @staticmethod
@@ -233,7 +303,7 @@ class AstraGISService:
         height: Optional[int] = None,
     ):
         # Dapatkan info WMS layer dari daftar layer pengguna
-        layers_data = await AstraGISService.get_layers()
+        layers_data = await GeoServerService.get_layers()
         layer_list = layers_data.get("data", []) if isinstance(layers_data, dict) else (layers_data if isinstance(layers_data, list) else [])
         matched = None
         for l in layer_list:
@@ -264,7 +334,7 @@ class AstraGISService:
             "format": mime,
         }
 
-        timeout = get_astragis_timeout()
+        timeout = get_geoserver_microservice_timeout()
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 resp = await client.get(wms_base, params=wms_query)
@@ -279,11 +349,23 @@ class AstraGISService:
     # --- Layer Groups ---
     @staticmethod
     async def get_layer_groups():
-        return await make_request("GET", "/api/v1/layer-groups")
+        target_workspace = await GeoServerService.get_target_workspace()
+        return await make_request(
+            "GET",
+            "/api/v1/layer-groups",
+            params={"workspace_id": target_workspace.get("id") or target_workspace["workspace_name"]},
+        )
 
     @staticmethod
     async def create_layer_group(payload: dict):
-        return await make_request("POST", "/api/v1/layer-groups", json=payload)
+        target_workspace = await GeoServerService.get_target_workspace()
+        group_payload = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"workspace_id", "workspace_name"}
+        }
+        group_payload["workspace_name"] = target_workspace["workspace_name"]
+        return await make_request("POST", "/api/v1/layer-groups", json=group_payload)
 
     @staticmethod
     async def update_layer_group(group_id: Any, payload: dict):

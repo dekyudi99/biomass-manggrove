@@ -9,7 +9,7 @@ import io
 import re
 import zipfile
 import geopandas as gpd
-from app.services.astragis_service import AstraGISService
+from app.services.geoserver_service import GeoServerService
 
 try:
     import pyogrio
@@ -21,33 +21,18 @@ router = APIRouter(prefix="/spatial", tags=["Spatial"])
 
 
 @router.get("/health")
-async def check_astragis_health():
+async def check_geoserver_microservice_health():
     """
-    Cek status koneksi backend Biomass ke AstraGIS S2S.
+    Cek koneksi backend Biomass ke GeoServer Microservice.
     """
-    return await AstraGISService.health_check()
+    return await GeoServerService.health_check()
 
 
-# --- WORKSPACES ---
+# --- GEOSERVER MICROSERVICE WORKSPACES ---
 
 @router.get("/workspaces")
 async def get_workspaces():
-    return await AstraGISService.get_workspaces()
-
-
-@router.post("/workspaces")
-async def create_workspace(payload: Dict[str, Any] = Body(...)):
-    return await AstraGISService.create_workspace(payload)
-
-
-@router.put("/workspaces/{workspace_id}")
-async def update_workspace(workspace_id: str, payload: Dict[str, Any] = Body(...)):
-    return await AstraGISService.update_workspace(workspace_id, payload)
-
-
-@router.delete("/workspaces/{workspace_id}")
-async def delete_workspace(workspace_id: str):
-    return await AstraGISService.delete_workspace(workspace_id)
+    return await GeoServerService.get_workspaces()
 
 
 # --- LAYERS ---
@@ -58,23 +43,22 @@ async def get_layers(
     size: int = Query(100, ge=1, le=500),
 ):
     params = {"page": page, "size": size}
-    return await AstraGISService.get_layers(params)
+    return await GeoServerService.get_layers(params)
 
 
 @router.post("/publish")
 async def publish_layer(
     file: UploadFile = File(...),
     layer_name: str = Form(...),
-    workspace_id: str = Form(...),
+    workspace_id: Optional[str] = Form(None),
     description: Optional[str] = Form(""),
 ):
     file_bytes = await file.read()
     form_data = {
         "layer_name": layer_name,
-        "workspace_id": str(workspace_id),
         "description": description or "",
     }
-    return await AstraGISService.publish_layer(
+    return await GeoServerService.publish_layer(
         file_bytes=file_bytes,
         filename=file.filename or "layer",
         content_type=file.content_type or "application/octet-stream",
@@ -87,17 +71,17 @@ async def get_raster_info(layer_id: str):
     """
     Mendapatkan statistik raster (min, max, mean, std) dan saved symbology dari GeoServer Microservice.
     """
-    return await AstraGISService.get_raster_info(layer_id)
+    return await GeoServerService.get_raster_info(layer_id)
 
 
 @router.post("/layers/{layer_id}/style")
 async def update_layer_style(layer_id: str, payload: Dict[str, Any] = Body(...)):
-    return await AstraGISService.update_layer_style(layer_id, payload)
+    return await GeoServerService.update_layer_style(layer_id, payload)
 
 
 @router.delete("/layers/{layer_id}")
 async def delete_layer(layer_id: str):
-    return await AstraGISService.delete_layer(layer_id)
+    return await GeoServerService.delete_layer(layer_id)
 
 
 @router.get("/layers/{layer_id}/download")
@@ -108,7 +92,7 @@ async def download_layer(
     width: Optional[int] = Query(None),
     height: Optional[int] = Query(None),
 ):
-    content, content_type, disposition = await AstraGISService.download_layer(
+    content, content_type, disposition = await GeoServerService.download_layer(
         layer_id=layer_id,
         format=format,
         styled=styled,
@@ -126,22 +110,22 @@ async def download_layer(
 
 @router.get("/layer-groups")
 async def get_layer_groups():
-    return await AstraGISService.get_layer_groups()
+    return await GeoServerService.get_layer_groups()
 
 
 @router.post("/layer-groups")
 async def create_layer_group(payload: Dict[str, Any] = Body(...)):
-    return await AstraGISService.create_layer_group(payload)
+    return await GeoServerService.create_layer_group(payload)
 
 
 @router.put("/layer-groups/{group_id}")
 async def update_layer_group(group_id: str, payload: Dict[str, Any] = Body(...)):
-    return await AstraGISService.update_layer_group(group_id, payload)
+    return await GeoServerService.update_layer_group(group_id, payload)
 
 
 @router.delete("/layer-groups/{group_id}")
 async def delete_layer_group(group_id: str):
-    return await AstraGISService.delete_layer_group(group_id)
+    return await GeoServerService.delete_layer_group(group_id)
 
 
 # --- SHAPEFILE AOI PARSER ---

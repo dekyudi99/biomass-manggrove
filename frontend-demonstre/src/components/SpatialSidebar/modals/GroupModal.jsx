@@ -1,32 +1,29 @@
 import { useState, useEffect } from 'react'
-import { Modal, Input, Select, Button, message } from 'antd'
+import { Modal, Input, Button, message } from 'antd'
 import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import layerGroupApi from '../../../api/LayerGroupApi'
 import { useLanguage } from '../../../context/LanguageContext'
 
-const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
+const GroupModal = ({ open, onClose, group, layers = [] }) => {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
 
   const [title, setTitle] = useState('')
-  const [workspaceId, setWorkspaceId] = useState(null)
   const [selectedLayerIds, setSelectedLayerIds] = useState([])
 
   useEffect(() => {
     if (open) {
       if (group) {
         setTitle(group.title || group.name)
-        setWorkspaceId(group.workspace_id)
         const memberIds = group.layers ? group.layers.map((l) => l.raw_id || l.id) : []
         setSelectedLayerIds(memberIds)
       } else {
         setTitle('')
-        setWorkspaceId(workspaces[0]?.id || null)
         setSelectedLayerIds([])
       }
     }
-  }, [open, group, workspaces])
+  }, [open, group])
 
   const createMutation = useMutation({
     mutationFn: (data) => layerGroupApi.create(data),
@@ -72,7 +69,6 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
       message.warning(t('selectMinOneLayer'))
       return
     }
-
     if (group) {
       updateMutation.mutate({
         id: group.id,
@@ -85,7 +81,6 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
       createMutation.mutate({
         name: trimmedTitle.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30),
         title: trimmedTitle,
-        workspace_id: workspaceId,
         layer_ids: selectedLayerIds,
       })
     }
@@ -118,23 +113,6 @@ const GroupModal = ({ open, onClose, group, workspaces = [], layers = [] }) => {
             className="text-xs rounded-lg"
           />
         </div>
-
-        {!group && (
-          <div>
-            <span className="font-semibold text-gray-700 block mb-1">
-              {t('groupWorkspace')} <span className="text-red-500">*</span>:
-            </span>
-            <Select
-              value={workspaceId}
-              onChange={setWorkspaceId}
-              className="w-full text-xs"
-              options={workspaces.map((w) => ({
-                value: w.id,
-                label: `${w.name} (${w.ws_name})`,
-              }))}
-            />
-          </div>
-        )}
 
         <div>
           <span className="font-semibold text-gray-700 block mb-1">

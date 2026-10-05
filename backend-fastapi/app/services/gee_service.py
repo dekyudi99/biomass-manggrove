@@ -5,8 +5,7 @@ import httpx
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
-from app.services.astragis_service import AstraGISService
-from app.services.ml_agb_service import MlAgbService
+from app.services.geoserver_service import GeoServerService
 
 # Palette standar untuk visualisasi GEE & SLD
 PALETTES = {
@@ -632,7 +631,6 @@ class GeeAnalysisService:
         cls,
         coordinates: List[List[float]],
         analysis_type: str,
-        workspace_id: int,
         layer_name: str,
         description: Optional[str] = "",
         start_date: Optional[str] = None,
@@ -762,13 +760,12 @@ class GeeAnalysisService:
             # 3. Coba publish via /s2s/publish-from-url (Bypass multipart limit karena body hanya JSON)
             try:
                 url_payload = {
-                    "workspace_id": workspace_id,
                     "layer_name": layer_name,
                     "description": description or f"GEE {band_name.upper()} Analysis ({start_date} s/d {end_date}) - {area_ha:.2f} Ha (Scale {scale}m)",
                     "download_url": download_url,
                     "style": color_entries,
                 }
-                publish_result = await AstraGISService.publish_from_url(url_payload)
+                publish_result = await GeoServerService.publish_from_url(url_payload)
                 new_layer = publish_result.get("layer") or publish_result.get("data") or publish_result
                 return {
                     "status": "success",
@@ -791,10 +788,9 @@ class GeeAnalysisService:
 
                 form_data = {
                     "layer_name": layer_name,
-                    "workspace_id": str(workspace_id),
                     "description": description or f"GEE {band_name.upper()} Analysis ({start_date} s/d {end_date}) - {area_ha:.2f} Ha",
                 }
-                publish_result = await AstraGISService.publish_layer(
+                publish_result = await GeoServerService.publish_layer(
                     file_bytes=tif_bytes,
                     filename=f"{layer_name.replace(' ', '_')}.tif",
                     content_type="image/tiff",
@@ -812,7 +808,7 @@ class GeeAnalysisService:
                 style_result = None
                 if new_layer_id:
                     try:
-                        style_result = await AstraGISService.update_layer_style(new_layer_id, style_payload)
+                        style_result = await GeoServerService.update_layer_style(new_layer_id, style_payload)
                     except Exception as style_err:
                         print(f"Warning: Gagal menerapkan style otomatis: {style_err}")
 
@@ -1190,7 +1186,6 @@ print(f"PyTorch Tensor Siap Training: {{tensor_x.shape}} | Tipe Data: {{tensor_x
         coordinates: List[List[float]],
         satellite: str = "sentinel2",
         bands: Optional[List[str]] = None,
-        workspace_id: int = 1,
         layer_name: str = "Satellite_Dataset",
         description: Optional[str] = "",
         start_date: Optional[str] = None,
@@ -1224,12 +1219,11 @@ print(f"PyTorch Tensor Siap Training: {{tensor_x.shape}} | Tipe Data: {{tensor_x
             # Coba publish via /s2s/publish-from-url
             try:
                 url_payload = {
-                    "workspace_id": workspace_id,
                     "layer_name": layer_name,
                     "description": description or f"{manifest['satellite_name']} ({composite_method}) Bands: {', '.join(chosen_bands)} - {area_ha:.2f} Ha (Scale {used_scale}m)",
                     "download_url": download_url,
                 }
-                publish_result = await AstraGISService.publish_from_url(url_payload)
+                publish_result = await GeoServerService.publish_from_url(url_payload)
                 new_layer = publish_result.get("layer") or publish_result.get("data") or publish_result
                 return {
                     "status": "success",
@@ -1251,10 +1245,9 @@ print(f"PyTorch Tensor Siap Training: {{tensor_x.shape}} | Tipe Data: {{tensor_x
 
                 form_data = {
                     "layer_name": layer_name,
-                    "workspace_id": str(workspace_id),
                     "description": description or f"{manifest['satellite_name']} ({composite_method}) Bands: {', '.join(chosen_bands)} - {area_ha:.2f} Ha",
                 }
-                publish_result = await AstraGISService.publish_layer(
+                publish_result = await GeoServerService.publish_layer(
                     file_bytes=tif_bytes,
                     filename=f"{layer_name.replace(' ', '_')}.tif",
                     content_type="image/tiff",

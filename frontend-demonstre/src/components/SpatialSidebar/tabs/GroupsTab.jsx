@@ -17,7 +17,6 @@ const GroupsTab = ({
   onToggleGroup,
   onChangeGroupOpacity,
   onZoomToGroup,
-  workspaces = [],
   layers = [],
 }) => {
   const { t } = useLanguage()
@@ -30,7 +29,7 @@ const GroupsTab = ({
     queryKey: ['layerGroups'],
     queryFn: async () => {
       const res = await layerGroupApi.list()
-      return res.data?.data || []
+        return Array.isArray(res.data) ? res.data : res.data?.data || []
     },
   })
 
@@ -212,7 +211,6 @@ const GroupsTab = ({
           setSelectedGroup(null)
         }}
         group={selectedGroup}
-        workspaces={workspaces}
         layers={layers}
       />
     </div>

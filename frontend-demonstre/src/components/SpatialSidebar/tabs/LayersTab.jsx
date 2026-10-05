@@ -28,7 +28,7 @@ const LayersTab = ({
     queryKey: ['layers'],
     queryFn: async () => {
       const res = await layerApi.list()
-      return res.data?.data || []
+      return Array.isArray(res.data) ? res.data : res.data?.data || []
     },
   })
 
@@ -119,12 +119,12 @@ const LayersTab = ({
                         <span>•</span>
                         <span
                           className={`px-1.5 py-0.2 rounded text-[9px] font-medium ${
-                            layer.layer_type === 'vector'
+                            (layer.layer_type || layer.type) === 'vector'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-blue-50 text-blue-700 border border-blue-200'
                           }`}
                         >
-                          {layer.data_type || (layer.layer_type === 'vector' ? 'Vector' : 'Raster')}
+                          {layer.data_type || ((layer.layer_type || layer.type) === 'vector' ? 'Vector' : 'Raster')}
                         </span>
                       </p>
                     </div>
@@ -152,7 +152,7 @@ const LayersTab = ({
                       </button>
                     </Tooltip>
 
-                    {layer.layer_type !== 'vector' && (
+                    {(layer.layer_type || layer.type) === 'raster' && (
                       <Tooltip title={t('editStyle')}>
                         <button
                           onClick={() => onOpenStyleModal(layer)}
