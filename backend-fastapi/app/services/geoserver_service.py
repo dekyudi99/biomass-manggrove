@@ -1,4 +1,5 @@
 import os
+import time
 import httpx
 from typing import Optional, Dict, Any, List
 from urllib.parse import urlparse
@@ -119,17 +120,22 @@ class GeoServerService:
     @staticmethod
     async def health_check():
         current_url = get_geoserver_microservice_url()
+        started_at = time.perf_counter()
         try:
             data = await make_request("GET", "/api/v1/health")
+            response_time_ms = round((time.perf_counter() - started_at) * 1000, 2)
             return {
                 "status": "connected",
+                "response_time_ms": response_time_ms,
                 "geoserver_microservice_url": current_url,
                 "geoserver_wms_url": get_geoserver_wms_url() or "default",
                 "data": data,
             }
         except Exception as e:
+            response_time_ms = round((time.perf_counter() - started_at) * 1000, 2)
             return {
                 "status": "error",
+                "response_time_ms": response_time_ms,
                 "geoserver_microservice_url": current_url,
                 "geoserver_wms_url": get_geoserver_wms_url() or "default",
                 "error": str(e),
@@ -212,6 +218,9 @@ class GeoServerService:
             layer_type = layer.get("layer_type") or layer.get("type") or layer.get("layerType")
             layer["layer_type"] = layer_type
             layer["type"] = layer.get("type") or layer_type
+            if layer_type == "vector":
+                layer["geom_type"] = layer.get("geom_type") or layer.get("geometry_type")
+                layer["geometry_type"] = layer.get("geometry_type") or layer.get("geom_type")
             layer["geoserver_name"] = (
                 layer.get("geoserver_name")
                 or layer.get("table_name")
@@ -271,6 +280,8 @@ class GeoServerService:
     async def get_raster_info(layer_id: Any):
         try:
             return await make_request("GET", f"/api/v1/styles/raster-info/{layer_id}")
+        except HTTPException as e:
+            raise e
         except Exception as e:
             return {
                 "statistics": {"min": 0, "max": 100, "mean": 50, "std": 10},
@@ -287,6 +298,8 @@ class GeoServerService:
             for c in style_payload["colors"]:
                 if isinstance(c, dict) and "quantity" not in c and "max" in c:
                     c["quantity"] = c["max"]
+        if "layer_kind" not in style_payload:
+            style_payload["layer_kind"] = "vector" if style_payload.get("symbol") else "raster"
         return await make_request("POST", "/api/v1/styles/apply", json=style_payload)
 
     @staticmethod

@@ -4,6 +4,7 @@ import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import layerGroupApi from '../../../api/LayerGroupApi'
 import { useLanguage } from '../../../context/LanguageContext'
+import { QUERY_KEYS } from '../../../constants/queryKeys'
 
 const GroupModal = ({ open, onClose, group, layers = [] }) => {
   const { t } = useLanguage()
@@ -29,7 +30,7 @@ const GroupModal = ({ open, onClose, group, layers = [] }) => {
     mutationFn: (data) => layerGroupApi.create(data),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('createGroup') + ' OK!')
-      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layerGroups })
       onClose()
     },
     onError: (err) => {
@@ -41,7 +42,7 @@ const GroupModal = ({ open, onClose, group, layers = [] }) => {
     mutationFn: ({ id, data }) => layerGroupApi.update({ id, data }),
     onSuccess: (res) => {
       message.success(res.data?.detail || t('editGroup') + ' OK!')
-      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layerGroups })
       onClose()
     },
     onError: (err) => {

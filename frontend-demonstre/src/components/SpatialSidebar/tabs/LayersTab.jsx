@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Input, Switch, Slider, Button, Tooltip, Popconfirm, message } from 'antd'
+import { Input, Switch, Button, Tooltip, Popconfirm, message } from 'antd'
 import {
   ReloadOutlined,
   AimOutlined,
@@ -11,6 +11,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import layerApi from '../../../api/LayerApi'
 import { useLanguage } from '../../../context/LanguageContext'
 import DownloadLayerModal from '../modals/DownloadLayerModal'
+import { QUERY_KEYS } from '../../../constants/queryKeys'
+import OpacityControl from '../../molecules/OpacityControl/OpacityControl'
+import InlineStatus from '../../atoms/InlineStatus/InlineStatus'
 
 const LayersTab = ({
   visibleLayers = [],
@@ -25,7 +28,7 @@ const LayersTab = ({
   const [downloadingLayer, setDownloadingLayer] = useState(null)
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['layers'],
+    queryKey: QUERY_KEYS.layers,
     queryFn: async () => {
       const res = await layerApi.list()
       return Array.isArray(res.data) ? res.data : res.data?.data || []
@@ -38,7 +41,7 @@ const LayersTab = ({
     mutationFn: (id) => layerApi.delete(id),
     onSuccess: (res, deletedId) => {
       message.success(res.data?.detail || t('deleteLayer') + ' OK!')
-      queryClient.invalidateQueries({ queryKey: ['layers'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layers })
       // Matikan dari peta jika sedang tampil
       const active = visibleLayers.find((l) => l.id === deletedId)
       if (active && onToggleLayer) {
@@ -79,13 +82,9 @@ const LayersTab = ({
       {/* List Layer */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {isLoading && layers.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-400">
-            {t('loadingLayers')}
-          </div>
+          <InlineStatus>{t('loadingLayers')}</InlineStatus>
         ) : filteredLayers.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-400">
-            {search ? t('noMatchingLayers') : t('noLayers')}
-          </div>
+          <InlineStatus>{search ? t('noMatchingLayers') : t('noLayers')}</InlineStatus>
         ) : (
           filteredLayers.map((layer) => {
             const isVisible = visibleLayers.some((vl) => vl.id === layer.id)
@@ -152,16 +151,15 @@ const LayersTab = ({
                       </button>
                     </Tooltip>
 
-                    {(layer.layer_type || layer.type) === 'raster' && (
-                      <Tooltip title={t('editStyle')}>
-                        <button
-                          onClick={() => onOpenStyleModal(layer)}
-                          className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-gray-100 rounded-md cursor-pointer transition"
-                        >
-                          <BgColorsOutlined className="text-sm" />
-                        </button>
-                      </Tooltip>
-                    )}
+                    <Tooltip title={t('editStyle')}>
+                      <button
+                        onClick={() => onOpenStyleModal(layer)}
+                        className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-gray-100 rounded-md cursor-pointer transition"
+                        aria-label={t('editStyle')}
+                      >
+                        <BgColorsOutlined className="text-sm" />
+                      </button>
+                    </Tooltip>
 
                     <Popconfirm
                       title={t('confirmDeleteLayerTitle')}
@@ -181,22 +179,11 @@ const LayersTab = ({
 
                 {/* Opacity Slider jika aktif */}
                 {isVisible && (
-                  <div className="mt-2 pt-2 border-t border-emerald-100 flex items-center gap-2">
-                    <span className="text-[10px] text-emerald-800 font-medium">
-                      {t('opacity')}:
-                    </span>
-                    <Slider
-                      min={0.1}
-                      max={1.0}
-                      step={0.05}
-                      value={currentOpacity}
-                      onChange={(val) => onChangeLayerOpacity(layer.id, val)}
-                      className="flex-1 m-0"
-                    />
-                    <span className="text-[10px] font-mono text-gray-500 w-8 text-right">
-                      {Math.round(currentOpacity * 100)}%
-                    </span>
-                  </div>
+                  <OpacityControl
+                    value={currentOpacity}
+                    onChange={(val) => onChangeLayerOpacity(layer.id, val)}
+                    label={t('opacity')}
+                  />
                 )}
               </div>
             )

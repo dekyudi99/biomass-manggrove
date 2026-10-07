@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Modal, Select, Button, message } from 'antd'
-import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CloseCircleOutlined, LockOutlined, ReloadOutlined } from '@ant-design/icons'
 import axiosClient from '../../../api/AxiosClient'
 import { useLanguage } from '../../../context/LanguageContext'
+import ThemeToggle from '../../atoms/ThemeToggle/ThemeToggle'
+import { getAuthCopy } from '../../../utils/authI18n'
 
-const SettingsModal = ({ open, onClose }) => {
+const SettingsModal = ({ open, onClose, onOpenChangePassword }) => {
   const { language, setLanguage, t } = useLanguage()
+  const authCopy = getAuthCopy(language)
 
   const [isChecking, setIsChecking] = useState(false)
   const [backendStatus, setBackendStatus] = useState(null)
@@ -15,7 +18,11 @@ const SettingsModal = ({ open, onClose }) => {
     try {
       const res = await axiosClient.get('/health')
       if (res.data?.status === 'connected') {
-        setBackendStatus({ success: true, url: res.data?.geoserver_microservice_url })
+        setBackendStatus({
+          success: true,
+          url: res.data?.geoserver_microservice_url,
+          responseTimeMs: res.data?.response_time_ms,
+        })
       } else {
         setBackendStatus({
           success: false,
@@ -32,25 +39,32 @@ const SettingsModal = ({ open, onClose }) => {
     }
   }
 
-  useEffect(() => {
-    if (open) {
-      checkConnection()
-    }
-  }, [open])
-
   return (
     <Modal
+      className="settings-modal"
       open={open}
+      afterOpenChange={(isOpen) => {
+        if (isOpen) checkConnection()
+      }}
       onCancel={onClose}
       footer={null}
       width="min(480px, 95vw)"
       destroyOnClose
-      title={<span className="font-bold text-gray-800 text-sm">⚙️ {t('settingsTitle')}</span>}
+      title={<span className="settings-modal-title text-sm font-bold text-gray-800 dark:text-slate-100">⚙️ {t('settingsTitle')}</span>}
     >
       <div className="space-y-4 py-2 text-xs">
+        <div className="settings-theme-row flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+          <span className="settings-theme-label font-semibold text-gray-700">{t('appearanceTheme')}</span>
+          <ThemeToggle
+            lightLabel={t('lightMode')}
+            darkLabel={t('darkMode')}
+            className="settings-theme-toggle min-h-9 rounded-lg px-2.5 text-xs"
+          />
+        </div>
+
         {/* Pilihan Bahasa */}
-        <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200">
-          <span className="font-semibold text-emerald-900 block mb-1.5">
+        <div className="settings-language-section p-3 bg-emerald-50/60 rounded-xl border border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40">
+          <span className="settings-language-label font-semibold text-emerald-900 block mb-1.5 dark:text-emerald-200">
             🌐 {t('langSelect')}:
           </span>
           <Select
@@ -68,10 +82,10 @@ const SettingsModal = ({ open, onClose }) => {
           />
         </div>
 
-        {/* Status koneksi GeoServer Microservice; API key hanya berada di backend. */}
-        <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+        {/* Status koneksi dan waktu respons GeoServer Microservice. */}
+        <div className="settings-status-section p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2 dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-gray-700">
+            <span className="font-semibold text-gray-700 dark:text-slate-200">
               🛰️ {t('backendStatusTitle')}
             </span>
             <Button
@@ -107,16 +121,24 @@ const SettingsModal = ({ open, onClose }) => {
                   ? `${t('geoserverMicroserviceEndpoint')} ${backendStatus.url}`
                   : backendStatus?.error || t('checkingConnection')}
               </p>
+              {backendStatus?.success && Number.isFinite(backendStatus.responseTimeMs) && (
+                <p className="text-[10px] text-gray-500 dark:text-slate-400">
+                  {t('geoserverResponseTime').replace('{ms}', backendStatus.responseTimeMs)}
+                </p>
+              )}
             </div>
           </div>
-
-          <p className="text-[10px] text-gray-400 italic">
-            {t('geoserverMicroserviceSecurityNote')}
-          </p>
         </div>
 
         {/* Footer */}
-        <div className="pt-2 flex justify-end items-center border-t border-gray-100">
+        <div className="pt-2 flex justify-between items-center border-t border-gray-100 dark:border-slate-700">
+          <Button
+            icon={<LockOutlined />}
+            onClick={onOpenChangePassword}
+            className="min-h-9 rounded-lg border-emerald-700 bg-emerald-700 px-3 text-sm font-semibold text-white shadow-sm hover:border-emerald-800 hover:bg-emerald-800 hover:text-white"
+          >
+            {authCopy.changePassword}
+          </Button>
           <Button
             size="small"
             type="primary"

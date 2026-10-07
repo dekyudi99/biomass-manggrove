@@ -11,8 +11,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    strictPort: true,
+    hmr: {
+      // Docker Desktop on Windows currently forwards this service over IPv4.
+      host: '127.0.0.1',
+      clientPort: 5173,
+      port: 5173,
+    },
     watch: {
       usePolling: true,
+      interval: 1000,
+      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
     },
     allowedHosts: true,
     proxy: {

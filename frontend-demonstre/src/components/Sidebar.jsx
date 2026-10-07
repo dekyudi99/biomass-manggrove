@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { message } from 'antd'
 import { useLanguage } from '../context/LanguageContext'
 import { parseGeoJsonAoi, parseCsvAoi, parseShapefileAoi } from '../utils/aoiParser'
+import Logo from '../assets/logo.png'
 
 const Sidebar = ({
   mode,
@@ -157,7 +158,7 @@ const Sidebar = ({
           <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 sm:pb-3 gap-2">
             <div className="min-w-0 flex-1">
               <h2 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-1.5 truncate">
-                <span>🌿</span> <span className="truncate">{t('appTitle')}</span>
+                <span><img src={Logo} alt="Grovia Logo" className="brand-logo-image w-6 h-6 object-contain" /></span> <span className="truncate text-2xl">Grovia Panel</span>
               </h2>
               <p className="text-[11px] sm:text-xs text-gray-500 truncate">{t('appSubtitle')}</p>
             </div>

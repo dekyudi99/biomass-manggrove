@@ -4,6 +4,7 @@ import { UploadOutlined, InboxOutlined, CheckCircleOutlined, InfoCircleOutlined 
 import { useQueryClient } from '@tanstack/react-query'
 import layerApi from '../../../api/LayerApi'
 import { useLanguage } from '../../../context/LanguageContext'
+import { QUERY_KEYS } from '../../../constants/queryKeys'
 
 const ACCEPTED_EXTENSIONS = ['.tif', '.tiff', '.geojson', '.json', '.zip', '.shp', '.gpkg', '.csv']
 
@@ -81,7 +82,7 @@ const UploadTab = ({ onUploadSuccess }) => {
       })
 
       message.success(res.data?.detail || t('layerPublishedSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['layers'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layers })
 
       setFile(null)
       setLayerName('')

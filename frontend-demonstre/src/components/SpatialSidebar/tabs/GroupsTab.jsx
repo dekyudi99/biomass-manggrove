@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Switch, Slider, Button, Tooltip, Popconfirm, message } from 'antd'
+import { Switch, Button, Tooltip, Popconfirm, message } from 'antd'
 import {
   ReloadOutlined,
   PlusOutlined,
@@ -11,6 +11,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import layerGroupApi from '../../../api/LayerGroupApi'
 import { useLanguage } from '../../../context/LanguageContext'
 import GroupModal from '../modals/GroupModal'
+import { QUERY_KEYS } from '../../../constants/queryKeys'
+import OpacityControl from '../../molecules/OpacityControl/OpacityControl'
+import InlineStatus from '../../atoms/InlineStatus/InlineStatus'
 
 const GroupsTab = ({
   visibleGroups = [],
@@ -26,7 +29,7 @@ const GroupsTab = ({
   const [selectedGroup, setSelectedGroup] = useState(null)
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['layerGroups'],
+    queryKey: QUERY_KEYS.layerGroups,
     queryFn: async () => {
       const res = await layerGroupApi.list()
         return Array.isArray(res.data) ? res.data : res.data?.data || []
@@ -39,7 +42,7 @@ const GroupsTab = ({
     mutationFn: (id) => layerGroupApi.delete(id),
     onSuccess: (res, deletedId) => {
       message.success(res.data?.detail || t('deleteGroup') + ' OK!')
-      queryClient.invalidateQueries({ queryKey: ['layerGroups'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layerGroups })
       const active = visibleGroups.find((g) => g.id === deletedId)
       if (active && onToggleGroup) {
         onToggleGroup(active, false)
@@ -89,13 +92,9 @@ const GroupsTab = ({
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {isLoading && groups.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-400">
-            {t('loadingGroups')}
-          </div>
+          <InlineStatus>{t('loadingGroups')}</InlineStatus>
         ) : groups.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-400">
-            {t('noGroups')}
-          </div>
+          <InlineStatus>{t('noGroups')}</InlineStatus>
         ) : (
           groups.map((grp) => {
             const isVisible = visibleGroups.some((vg) => vg.id === grp.id)
@@ -181,22 +180,11 @@ const GroupsTab = ({
                 )}
 
                 {isVisible && (
-                  <div className="mt-2 pt-2 border-t border-emerald-100 flex items-center gap-2">
-                    <span className="text-[10px] text-emerald-800 font-medium">
-                      {t('opacity')}:
-                    </span>
-                    <Slider
-                      min={0.1}
-                      max={1.0}
-                      step={0.05}
-                      value={currentOpacity}
-                      onChange={(val) => onChangeGroupOpacity(grp.id, val)}
-                      className="flex-1 m-0"
-                    />
-                    <span className="text-[10px] font-mono text-gray-500 w-8 text-right">
-                      {Math.round(currentOpacity * 100)}%
-                    </span>
-                  </div>
+                  <OpacityControl
+                    value={currentOpacity}
+                    onChange={(val) => onChangeGroupOpacity(grp.id, val)}
+                    label={t('opacity')}
+                  />
                 )}
               </div>
             )

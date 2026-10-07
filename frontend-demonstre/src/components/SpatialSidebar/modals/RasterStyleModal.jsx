@@ -10,6 +10,7 @@ import {
   generateClassificationClasses,
 } from '../../../utils/styleConstants'
 import { useLanguage } from '../../../context/LanguageContext'
+import { QUERY_KEYS } from '../../../constants/queryKeys'
 
 // Clean SVG Icons for zero-dependency reliability
 const PaletteIcon = ({ className = 'w-5 h-5' }) => (
@@ -309,7 +310,7 @@ const LayerStyleModal = ({ layer, open, onClose, onStyleApplied }) => {
     mutationFn: (data) => layerApi.updateStyle({ layerId: layer.id, data }),
     onSuccess: (res) => {
       message.success(res?.data?.detail || 'Klasifikasi & style layer berhasil disimpan di GeoServer!')
-      queryClient.invalidateQueries({ queryKey: ['layers'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layers })
       if (onStyleApplied && layer) {
         onStyleApplied(layer.id, {
           style_name: layer.style_name || layer.symbology?.style_name || `style_${layer.geoserver_name || layer.store_name || layer.layer_name}`,

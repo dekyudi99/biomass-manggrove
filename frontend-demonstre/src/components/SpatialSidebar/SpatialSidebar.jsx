@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AppstoreOutlined,
   FolderOutlined,
@@ -14,8 +15,10 @@ import LayersTab from './tabs/LayersTab'
 import GroupsTab from './tabs/GroupsTab'
 import UploadTab from './tabs/UploadTab'
 
-import LayerStyleModal from './modals/LayerStyleModal'
+import RasterStyleModal from './modals/RasterStyleModal'
+import VectorStyleModal from './modals/VectorStyleModal'
 import SettingsModal from './modals/SettingsModal'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const SpatialSidebar = ({
   visibleLayers = [],
@@ -32,6 +35,7 @@ const SpatialSidebar = ({
   otherSidebarOpen = false,
 }) => {
   const { t } = useLanguage()
+  const navigate = useNavigate()
 
   const [localIsOpen, setLocalIsOpen] = useState(false)
   const isControlled = typeof propIsOpen === 'boolean'
@@ -53,7 +57,7 @@ const SpatialSidebar = ({
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false)
 
   const { data: layersData } = useQuery({
-    queryKey: ['layers'],
+    queryKey: QUERY_KEYS.layers,
     queryFn: async () => {
       const res = await layerApi.list()
       return res.data?.data || []
@@ -161,10 +165,23 @@ const SpatialSidebar = ({
         )}
       </aside>
 
-      {/* Modal Edit Style SLD */}
-      <LayerStyleModal
+      {/* Raster: value classification; vector: geometry-based single symbol. */}
+      <RasterStyleModal
+        key={`raster-style-${selectedLayerForStyle?.id || 'none'}`}
         layer={selectedLayerForStyle}
-        open={isStyleModalOpen}
+        open={isStyleModalOpen && (selectedLayerForStyle?.layer_type || selectedLayerForStyle?.type) === 'raster'}
+        onClose={() => {
+          setIsStyleModalOpen(false)
+          setSelectedLayerForStyle(null)
+        }}
+        onStyleApplied={(layerId, symbology) => {
+          if (onStyleApplied) onStyleApplied(layerId, symbology)
+        }}
+      />
+      <VectorStyleModal
+        key={`vector-style-${selectedLayerForStyle?.id || 'none'}`}
+        layer={selectedLayerForStyle}
+        open={isStyleModalOpen && (selectedLayerForStyle?.layer_type || selectedLayerForStyle?.type) === 'vector'}
         onClose={() => {
           setIsStyleModalOpen(false)
           setSelectedLayerForStyle(null)
@@ -175,7 +192,14 @@ const SpatialSidebar = ({
       />
 
       {/* Modal Settings & Bahasa */}
-      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onOpenChangePassword={() => {
+          setIsSettingsOpen(false)
+          navigate('/account')
+        }}
+      />
     </>
   )
 }

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import test_endpoint, spatial, gee
+from app.routes import test_endpoint, spatial, gee, auth
 import app.config.gee_initialize
 
 import os
@@ -19,10 +19,12 @@ default_origins = [
 ]
 env_cors = os.getenv("CORS_ORIGINS")
 origins = [orig.strip() for orig in env_cors.split(",") if orig.strip()] if env_cors else default_origins
+if not origins or "*" in origins:
+    raise RuntimeError("CORS_ORIGINS must contain explicit origins when credentialed cookies are enabled.")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins != ["*"] else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,3 +33,4 @@ app.add_middleware(
 app.include_router(test_endpoint.router)
 app.include_router(spatial.router, prefix="/api")
 app.include_router(gee.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
