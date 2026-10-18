@@ -28,3 +28,5 @@ def test_gee_connection():
             "message": "Gagal terhubung ke GEE",
             "detail": str(e)
         }
+
+

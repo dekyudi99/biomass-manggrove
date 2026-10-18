@@ -1,20 +1,4 @@
 services:
-  database:
-    image: postgres:16-alpine
-    container_name: biomass_auth_database
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: biomass_db
-      POSTGRES_USER: biomass_user
-      POSTGRES_PASSWORD: ${BIOMASS_DB_PASSWORD:?Set BIOMASS_DB_PASSWORD in the ignored root .env file}
-    volumes:
-      - biomass_auth_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U biomass_user -d biomass_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
     build:
       context: ./backend-fastapi
@@ -24,25 +8,59 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount folder backend lokal ke /app di container (Live reload aktif)
       - ./backend-fastapi:/app
       - ./backend-fastapi/gee-key.json:/app/credentials/gee-key.json
+      - agb_analysis_results:/data/analysis-results
     env_file:
       - ./backend-fastapi/.env
     environment:
       - PYTHONUNBUFFERED=1
       - APP_ENV=${APP_ENV:-development}
-      - DATABASE_URL=postgresql+psycopg://biomass_user:${BIOMASS_DB_PASSWORD:?Set BIOMASS_DB_PASSWORD in the ignored root .env file}@database:5432/biomass_db
+      - AGB_RESULTS_DIR=/data/analysis-results
+    command: >-
+      sh -c 'attempt=0;
+      until alembic upgrade head; do
+        attempt=$$((attempt + 1));
+        if [ "$$attempt" -ge 20 ]; then
+          echo "Database migrations failed after $$attempt attempts; backend startup aborted.";
+          exit 1;
+        fi;
+        echo "Database unavailable for migrations (attempt $$attempt/20); retrying in 3 seconds.";
+        sleep 3;
+      done;
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app'
+    networks: 
+      - network_gis
+      - central-db
+
+  agb-worker:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    container_name: biomass_agb_worker
+    restart: unless-stopped
+    volumes:
+      - ./backend-fastapi:/app
+      - ./backend-fastapi/gee-key.json:/app/credentials/gee-key.json
+      - agb_analysis_results:/data/analysis-results
+    env_file:
+      - ./backend-fastapi/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AGB_RESULTS_DIR=/data/analysis-results
     depends_on:
-      database:
-        condition: service_healthy
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      backend:
+        condition: service_started
+    command: python -m app.worker
+    networks: 
+      - network_gis
+      - central-db
 
   frontend:
     build:
       context: ./frontend-demonstre
       dockerfile: Dockerfile
-    container_name: biomass_frontend
+    container_name: biomass_frontend_app
     restart: unless-stopped
     ports:
       - "5173:5173"
@@ -55,6 +73,16 @@ services:
       - ./frontend-demonstre/.env
     depends_on:
       - backend
-
+    networks: 
+      - network_gis
+      
 volumes:
-  biomass_auth_data:
+  agb_analysis_results:
+
+networks:
+  network_gis:
+    name: network_gis
+    external: true
+  central-db:
+    external: true
+    name: db-central-net

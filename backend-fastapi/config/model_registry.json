@@ -1,0 +1,60 @@
+{
+  "active_model": "agb-lgbm-beta-1",
+  "models": {
+    "agb-lgbm-beta-1": {
+      "model_path": "model/best_mangrove_agb_model.joblib",
+      "mangrove_mask_path": "model/LU_mangrove_forest_61.shp",
+      "version": "0.1.0-beta",
+      "status": "beta",
+      "features": ["VV", "VH", "NDVI"],
+      "preprocessing": {
+        "sentinel2_collection": "COPERNICUS/S2_SR_HARMONIZED",
+        "sentinel2_cloud_mask": {
+          "qa_band": "QA60",
+          "cloud_bit": 10,
+          "cirrus_bit": 11
+        },
+        "sentinel2_max_cloud_percentage_exclusive": 20,
+        "sentinel2_composite": "median",
+        "ndvi_bands": ["B8", "B4"],
+        "sentinel1_collection": "COPERNICUS/S1_GRD",
+        "sentinel1_instrument_mode": "IW",
+        "sentinel1_polarizations": ["VV", "VH"],
+        "sentinel1_orbit_filter": null,
+        "sentinel1_speckle_filter": false,
+        "sentinel1_composite": "median",
+        "training_start_date_inclusive": "2026-03-01",
+        "training_end_date_exclusive": "2026-04-01",
+        "crs": "EPSG:32647",
+        "pixel_size_meters": 10,
+        "validity": {
+          "finite_features": true,
+          "minimum_ndvi_inclusive": 0.3,
+          "minimum_vh_db_inclusive": -22
+        },
+        "negative_prediction_floor": 0,
+        "nodata": -9999
+      },
+      "target": {
+        "column": "AGB_Revised_kg",
+        "unit": "kg per piksel 10x10 m",
+        "ground_truth_validated": false,
+        "provenance": "Statistik inventori provinsi dan distribusi ulang berdasarkan peringkat skor citra satelit"
+      },
+      "display_range": {
+        "minimum": 0,
+        "maximum": 4000
+      },
+      "layer_metadata": {
+        "title_template": "Estimasi AGB Mangrove {status} {version}",
+        "abstract_template": "{disclaimer} Model: {version} ({status}). Satuan: {unit}."
+      },
+      "disclaimer": "Versi beta: estimasi AGB ini belum divalidasi dengan data lapangan (ground truth). Nilainya berbasis statistik inventori provinsi dan indeks citra satelit, sehingga hanya cocok sebagai gambaran awal, bukan hasil pengukuran.",
+      "metrics_display_allowed": false
+    }
+  },
+  "aoi_limits": {
+    "maximum_tiles": 1000,
+    "tile_size_pixels": 1000
+  }
+}

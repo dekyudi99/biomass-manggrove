@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from app.config.database import Base
 from app.config.settings import DATABASE_URL
 from app.models import EmailVerificationOTP, User
+from app.models import AnalysisJob, Notification, UserLayer
 
 
 config = context.config

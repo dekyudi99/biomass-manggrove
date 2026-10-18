@@ -17,13 +17,18 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('app_language', lang)
   }
 
-  const t = (key) => {
+  const t = (key, fallback) => {
     const langDict = translations[language] || translations.id
-    return langDict[key] || translations.id[key] || key
+    return langDict[key] || translations.id[key] || fallback || key
+  }
+
+  const translateApi = (err, defaultKey = 'operationFailed') => {
+    const apiDetail = err?.response?.data?.detail || err?.response?.data?.message || err?.message
+    return apiDetail || t(defaultKey, 'Operasi gagal')
   }
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, translateApi }}>
       {children}
     </LanguageContext.Provider>
   )

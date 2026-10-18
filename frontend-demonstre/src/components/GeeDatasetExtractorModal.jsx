@@ -127,7 +127,7 @@ const GeeDatasetExtractorModal = ({
   // Jalankan Preview Peta
   const handlePreviewMap = async () => {
     if (!areaPoints || areaPoints.length < 3) {
-      message.error(t('polygonMinPoints') || 'Area poligon minimal harus memiliki 3 titik koordinat.')
+      message.warning(t('noAoiAnalysisWarning'))
       return
     }
     if (selectedBands.length === 0) {
@@ -173,7 +173,7 @@ const GeeDatasetExtractorModal = ({
   // Generate GeoTIFF Multi-Band & Manifest
   const handleGenerateDownload = async () => {
     if (!areaPoints || areaPoints.length < 3) {
-      message.error(t('polygonMinPoints') || 'Area poligon minimal harus memiliki 3 titik koordinat.')
+      message.warning(t('noAoiAnalysisWarning'))
       return
     }
     if (selectedBands.length === 0) {
@@ -400,7 +400,7 @@ const GeeDatasetExtractorModal = ({
                   {t('datasetExtractorTitle')}
                 </h3>
                 <p className="text-[10px] sm:text-[11px] text-gray-500 font-normal leading-snug truncate">
-                  {t('datasetExtractorSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} {t('pointsUnit') || 'Titik'})
+                  {t('datasetExtractorSubtitle')} • {areaPoints && areaPoints.length >= 3 ? `${areaHectares.toFixed(2)} Ha (${areaPoints.length} ${t('pointsUnit') || 'Titik'})` : t('noAoiSelected')}
                 </p>
               </div>
             </div>
@@ -676,27 +676,41 @@ const GeeDatasetExtractorModal = ({
           </div>
 
           {/* 4. TOMBOL AKSI UTAMA (PREVIEW DI PETA & AMBIL DATA DARI GEE) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={handlePreviewMap}
-              disabled={isPreviewing || selectedBands.length === 0}
-              className="py-2.5 px-4 rounded-xl font-bold text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              {isPreviewing ? <Spin size="small" /> : <EyeOutlined />}
-              <span>{t('btnPreviewOnMap')}</span>
-            </button>
+          {(() => {
+            const hasValidAoi = areaPoints && areaPoints.length >= 3
+            return (
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handlePreviewMap}
+                    disabled={!hasValidAoi || isPreviewing || selectedBands.length === 0}
+                    className="py-2.5 px-4 rounded-xl font-bold text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    {isPreviewing ? <Spin size="small" /> : <EyeOutlined />}
+                    <span>{t('btnPreviewOnMap')}</span>
+                  </button>
 
-            <button
-              type="button"
-              onClick={handleGenerateDownload}
-              disabled={isExporting || selectedBands.length === 0}
-              className="py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              {isExporting ? <Spin size="small" /> : <DownloadOutlined />}
-              <span>{t('btnDownloadGeotiff')}</span>
-            </button>
-          </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateDownload}
+                    disabled={!hasValidAoi || isExporting || selectedBands.length === 0}
+                    className="py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  >
+                    {isExporting ? <Spin size="small" /> : <DownloadOutlined />}
+                    <span>{t('btnDownloadGeotiff')}</span>
+                  </button>
+                </div>
+
+                {!hasValidAoi && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2 text-center text-[11px] text-amber-900 flex items-center justify-center gap-1.5 font-medium">
+                    <span>💡</span>
+                    <span>{t('noAoiAnalysisWarning')}</span>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* 6. PANEL HASIL EKSTRAKSI & DOWNLOAD LANGSUNG */}
           {datasetResult && (

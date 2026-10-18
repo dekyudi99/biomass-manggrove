@@ -226,3 +226,23 @@ export function generateClassificationClasses({ min, max, count, method = "jenks
   }
   return classes;
 }
+
+// Mencari color ramp yang paling cocok dari daftar ramps
+export function findMatchingColorRamp(targetColors, ramps = COLOR_RAMP_PREVIEWS) {
+  if (!targetColors || targetColors.length === 0) return null;
+  const hexes = targetColors.map((c) => String(c).toLowerCase().trim());
+  // 1. Direct exact match
+  for (const ramp of ramps) {
+    if (ramp.colors.length === hexes.length) {
+      const match = ramp.colors.every((c, i) => c.toLowerCase() === hexes[i]);
+      if (match) return ramp;
+    }
+  }
+  // 2. Sample match
+  for (const ramp of ramps) {
+    const sampled = sampleRampColors(ramp.colors, hexes.length).map((c) => c.toLowerCase());
+    const match = sampled.every((c, i) => c === hexes[i]);
+    if (match) return ramp;
+  }
+  return null;
+}

@@ -14,6 +14,7 @@ import DownloadLayerModal from '../modals/DownloadLayerModal'
 import { QUERY_KEYS } from '../../../constants/queryKeys'
 import OpacityControl from '../../molecules/OpacityControl/OpacityControl'
 import InlineStatus from '../../atoms/InlineStatus/InlineStatus'
+import { getLayerDisplayName } from '../../../utils/wmsUtils'
 
 const LayersTab = ({
   visibleLayers = [],
@@ -53,9 +54,15 @@ const LayersTab = ({
     },
   })
 
-  const filteredLayers = layers.filter((l) =>
-    (l.layer_name || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredLayers = layers.filter((l) => {
+    const displayName = getLayerDisplayName(l, t)
+    const query = search.toLowerCase()
+    return (
+      displayName.toLowerCase().includes(query) ||
+      (l.layer_name || '').toLowerCase().includes(query) ||
+      (l.workspace_display_name || l.workspace_name || '').toLowerCase().includes(query)
+    )
+  })
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -67,7 +74,7 @@ const LayersTab = ({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           allowClear
-          className="text-xs rounded-lg"
+          className="text-xs rounded-lg flex-1"
         />
         <Tooltip title={t('refresh')}>
           <Button
@@ -80,6 +87,7 @@ const LayersTab = ({
       </div>
 
       {/* List Layer */}
+
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {isLoading && layers.length === 0 ? (
           <InlineStatus>{t('loadingLayers')}</InlineStatus>
@@ -110,8 +118,8 @@ const LayersTab = ({
                       className={isVisible ? 'bg-emerald-600' : ''}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-800 truncate leading-tight">
-                        {layer.layer_name}
+                      <p className="font-semibold text-gray-800 truncate leading-tight" title={getLayerDisplayName(layer, t)}>
+                        {getLayerDisplayName(layer, t)}
                       </p>
                       <p className="text-[10px] text-gray-400 truncate flex items-center gap-1.5 mt-0.5">
                         <span className="truncate">{layer.workspace_display_name || layer.workspace_name}</span>

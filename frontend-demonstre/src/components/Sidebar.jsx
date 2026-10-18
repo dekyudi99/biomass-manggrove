@@ -18,6 +18,8 @@ const Sidebar = ({
   pointAddress,
   onCloseArea,
   onOpenGeeAnalysis,
+  onOpenVegetationIndices,
+  onOpenAgbAnalysis,
   onOpenDatasetExtractor,
   onUploadAoi,
   isEditingRoi = false,
@@ -30,6 +32,9 @@ const Sidebar = ({
   isOpen: propIsOpen,
   onToggle: propOnToggle,
   otherSidebarOpen = false,
+  onFocusMangroveArea,
+  isModelCoverageVisible = true,
+  onToggleModelCoverage,
 }) => {
   const { t } = useLanguage()
   const fileInputRef = useRef(null)
@@ -280,6 +285,45 @@ const Sidebar = ({
                 )}
               </div>
 
+              {/* Card Petunjuk Area Mangrove yang Didukung */}
+              <div className="bg-teal-50/90 border border-teal-200/90 rounded-xl p-2.5 text-xs text-teal-900 flex items-center justify-between gap-2 shadow-xs">
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-[11px] text-teal-950 flex items-center gap-1">
+                    <span>🌿</span> {t('mangroveModelArea') || 'Area Model Mangrove'}
+                  </span>
+                  <span className="text-[10px] text-teal-700 truncate">
+                    {t('mangroveAreaSubtitle') || 'Thailand Selatan (Ranong / Phuket)'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {onToggleModelCoverage && (
+                    <button
+                      type="button"
+                      onClick={onToggleModelCoverage}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                        isModelCoverageVisible
+                          ? 'bg-emerald-100/90 border-emerald-300 text-emerald-800 hover:bg-emerald-200'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                      title={isModelCoverageVisible ? t('hideMangroveMask') : t('showMangroveMask')}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isModelCoverageVisible ? 'bg-emerald-600' : 'bg-gray-400'}`} />
+                      <span>{isModelCoverageVisible ? (t('mangroveMaskActive') || 'Masker Aktif') : (t('mangroveMaskInactive') || 'Masker Nonaktif')}</span>
+                    </button>
+                  )}
+                  {onFocusMangroveArea && (
+                    <button
+                      type="button"
+                      onClick={onFocusMangroveArea}
+                      className="px-2 py-1 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold text-[10px] rounded-lg shadow-2xs transition-all flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                      title={t('focusMangroveArea')}
+                    >
+                      <span>🎯</span> {t('focusAreaBtn') || 'Fokus'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Upload AOI (GeoJSON / CSV / Shapefile - Multi-select) */}
               <div>
                 <input
@@ -447,31 +491,51 @@ const Sidebar = ({
                 </div>
               )}
 
-              {/* Tombol Aksi Analisis GEE & Ekstraksi Dataset (Hanya aktif jika SUDAH DITUTUP) */}
+              {/* Tombol Aksi Analisis GEE & Ekstraksi Dataset */}
               <div className="flex flex-col gap-1.5 mt-1">
+                {/* 1. Tombol Ekstraksi Dataset Satelit (Training ML) - Selalu aktif untuk eksplorasi parameter/katalog */}
                 <button
-                  disabled={!isAreaClosed || areaPoints.length < 3}
-                  onClick={() => {
-                    if (onOpenGeeAnalysis) {
-                      onOpenGeeAnalysis()
-                    }
-                  }}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>🛰️</span> {t('analyzeBiomassGEE')}
-                </button>
-
-                <button
-                  disabled={!isAreaClosed || areaPoints.length < 3}
+                  type="button"
                   onClick={() => {
                     if (onOpenDatasetExtractor) {
                       onOpenDatasetExtractor()
                     }
                   }}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>🔬</span> {t('btnExtractDataset')}
                 </button>
+
+                {/* 2. Tombol Analisis Indeks Vegetasi & Spektral (GEE) - Selalu aktif untuk eksplorasi indeks */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenVegetationIndices) {
+                      onOpenVegetationIndices()
+                    } else if (onOpenGeeAnalysis) {
+                      onOpenGeeAnalysis('vegetation')
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>🌿</span> {t('btnVegetationIndices')}
+                </button>
+
+                {/* 3. Tombol Estimasi Biomassa AGB (Model AI) - Selalu aktif untuk pantau status/riwayat */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenAgbAnalysis) {
+                      onOpenAgbAnalysis()
+                    } else if (onOpenGeeAnalysis) {
+                      onOpenGeeAnalysis('biomass')
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-700 hover:via-indigo-700 hover:to-purple-800 active:from-violet-900 active:to-purple-900 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-300/40 ring-1 ring-indigo-400/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span className="text-sm">🤖</span> {t('analyzeAgbModelBtn')}
+                </button>
+
               </div>
             </div>
           )}

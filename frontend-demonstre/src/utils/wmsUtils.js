@@ -40,3 +40,37 @@ export const resolveWmsUrl = (wmsUrl, workspaceName) => {
     return wmsUrl || `${baseWmsUrl}/wms`
   }
 }
+
+export const getLayerDisplayName = (layer, t = (k) => k) => {
+  if (!layer) return ''
+
+  const rawName =
+    layer.layer_name ||
+    layer.name ||
+    layer.geoserver_name ||
+    layer.table_name ||
+    layer.store_name ||
+    ''
+
+  const isAgbJob =
+    rawName.startsWith('agb_') ||
+    String(layer.id || '').startsWith('agb_') ||
+    String(layer.title || '').includes('Estimasi AGB') ||
+    String(layer.title || '').includes('AGB')
+
+  if (isAgbJob) {
+    const cleanId = rawName.replace(/^agb_/, '').replace(/[^a-zA-Z0-9-]/g, '')
+    const shortId = cleanId ? cleanId.slice(0, 8) : ''
+    const baseTitle = typeof t === 'function' ? t('agbEstimationLayer') : 'Estimasi Biomassa AGB Mangrove'
+    return shortId ? `${baseTitle} (${shortId})` : baseTitle
+  }
+
+  if (layer.display_name && !layer.display_name.startsWith('agb_')) {
+    return layer.display_name
+  }
+  if (layer.title && !layer.title.startsWith('agb_')) {
+    return layer.title
+  }
+
+  return layer.display_name || layer.title || rawName || layer.id || 'Layer'
+}

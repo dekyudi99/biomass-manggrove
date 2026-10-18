@@ -13,9 +13,18 @@ def _required_secret(name: str) -> str:
     return value
 
 
+DB_HOST = os.getenv("DB_HOST", "db-central-postgres").strip()
+DB_PORT = os.getenv("DB_PORT", "5432").strip()
+DB_NAME = os.getenv("DB_NAME", "mangrove").strip()
+DB_USER = os.getenv("DB_USER", "mangrove_app").strip()
+DB_PASSWORD = os.getenv("DB_PASSWORD", "").strip()
+
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL must be configured in the backend environment.")
+    if DB_PASSWORD:
+        DATABASE_URL = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    else:
+        raise RuntimeError("DATABASE_URL or DB_PASSWORD must be configured in the backend environment.")
 JWT_SECRET_KEY = _required_secret("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256").strip() or "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))

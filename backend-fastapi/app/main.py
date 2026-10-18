@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import test_endpoint, spatial, gee, auth
+from app.routes import test_endpoint, spatial, gee, auth, analysis
 import app.config.gee_initialize
 
 import os
@@ -16,6 +16,7 @@ default_origins = [
     "http://localhost:5174",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "https://grovia.wefgis.com"
 ]
 env_cors = os.getenv("CORS_ORIGINS")
 origins = [orig.strip() for orig in env_cors.split(",") if orig.strip()] if env_cors else default_origins
@@ -34,3 +35,4 @@ app.include_router(test_endpoint.router)
 app.include_router(spatial.router, prefix="/api")
 app.include_router(gee.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(analysis.router, prefix="/api")

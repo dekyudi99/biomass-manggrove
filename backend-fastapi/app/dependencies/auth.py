@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.config.settings import AUTH_SESSION_COOKIE_NAME, JWT_ALGORITHM, JWT_SECRET_KEY
 from app.models.auth import User
-from app.services.auth_service import get_authenticated_user
+from app.services.common.auth import get_authenticated_user
 
 
 def get_current_user(
@@ -36,3 +36,13 @@ def get_current_user(
     except (jwt.InvalidTokenError, TypeError, ValueError) as error:
         raise invalid_token from error
     return get_authenticated_user(db, user_id, token_version)
+
+
+def get_optional_current_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> User | None:
+    try:
+        return get_current_user(request, db)
+    except HTTPException:
+        return None

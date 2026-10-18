@@ -22,6 +22,11 @@ const GeeAnalysisLegend = ({ previewLayer, isMinimized, onToggleMinimized }) => 
           <span className="truncate">
             Legenda: <span className="text-emerald-700 uppercase">{previewLayer.analysisType}</span>
           </span>
+          {previewLayer.analysisType === 'agb' && previewLayer.modelStatus === 'beta' && (
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900">
+              BETA
+            </span>
+          )}
         </h3>
         <div className="flex shrink-0 items-center gap-1">
           <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
@@ -48,8 +53,8 @@ const GeeAnalysisLegend = ({ previewLayer, isMinimized, onToggleMinimized }) => 
             style={{ background: `linear-gradient(to right, ${palette.colors.join(', ')})` }}
           />
           <div className="mb-2 flex justify-between font-mono text-[10px] text-gray-500">
-            <span>Min: {palette.min}</span>
-            <span>Maks: {palette.max}</span>
+            <span>Min: {palette.min} {previewLayer.analysisType === 'agb' ? previewLayer.modelUnit : ''}</span>
+            <span>Maks: {palette.max} {previewLayer.analysisType === 'agb' ? previewLayer.modelUnit : ''}</span>
           </div>
           <div className="space-y-1 text-[10px]">
             {palette.colors.map((color, index) => (
@@ -64,9 +69,11 @@ const GeeAnalysisLegend = ({ previewLayer, isMinimized, onToggleMinimized }) => 
           </div>
 
           {previewLayer.analysisType === 'agb' && (
-            <div className="mt-2 flex items-center gap-1 border-t border-emerald-100 pt-1.5 text-[10px] font-semibold text-emerald-800">
-              <span aria-hidden="true">🌿</span>
-              <span>Nilai AGB makin tinggi = warna semakin hijau pekat.</span>
+            <div className="mt-2 flex flex-col gap-1 border-t border-amber-100 pt-1.5 text-[10px] text-amber-950">
+              {previewLayer.modelStatus === 'beta' && (
+                <span className="font-bold">{previewLayer.disclaimer}</span>
+              )}
+              <span className="font-semibold text-emerald-800">Nilai AGB makin tinggi = warna semakin hijau pekat.</span>
             </div>
           )}
         </>

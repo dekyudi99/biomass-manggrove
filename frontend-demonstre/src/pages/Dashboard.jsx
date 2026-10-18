@@ -25,6 +25,7 @@ import WmsMapLayers from '../components/organisms/map/WmsMapLayers/WmsMapLayers'
 import MapLocationLayers from '../components/organisms/map/MapLocationLayers/MapLocationLayers'
 import AoiDrawingLayer from '../components/organisms/map/AoiDrawingLayer/AoiDrawingLayer'
 import AoiEditorLayer from '../components/organisms/map/AoiEditorLayer/AoiEditorLayer'
+import ModelCoverageLayer from '../components/organisms/map/ModelCoverageLayer/ModelCoverageLayer'
 import GeePreviewIndicator from '../components/organisms/map/GeePreviewIndicator/GeePreviewIndicator'
 import { reverseGeocode } from '../services/nominatimService'
 import { calculatePolygonAreaInHectares, getCoordinatesBbox } from '../utils/mapGeometry'
@@ -47,9 +48,15 @@ const Dashboard = () => {
   }, [])
 
   const { t, currentLanguage } = useLanguage()
-  const defaultCenter = [ 3.074695, 101.672974]
+  const defaultCenter = [ 8.363693, 98.640747 ]
   const [activeLayer, setActiveLayer] = useState('osm')
   const currentLayer = BASE_LAYERS[activeLayer]
+
+  // Batas vertikal bumi (kutub utara & selatan) untuk Web Mercator, tanpa batas horizontal agar bisa looping/berputar terus
+  const batasBumi = [
+    [-85.051129, -Infinity],
+    [85.051129, Infinity]
+  ];
 
   // State mode: 'point' (Titik Pin) atau 'area' (Poligon)
   const [mode, setMode] = useState('point')
@@ -68,6 +75,7 @@ const Dashboard = () => {
 
   // State untuk Modal Analisis GEE & Layer Preview GEE di Peta
   const [isGeeModalOpen, setIsGeeModalOpen] = useState(false)
+  const [geeModalSection, setGeeModalSection] = useState('vegetation')
   const [isDatasetExtractorOpen, setIsDatasetExtractorOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isEditingRoi, setIsEditingRoi] = useState(false)
@@ -154,6 +162,20 @@ const Dashboard = () => {
     })
   }
 
+  // State untuk menampilkan/menyembunyikan batas wilayah model mangrove
+  const [isModelCoverageVisible, setIsModelCoverageVisible] = useState(true)
+
+  // Handler untuk memusatkan peta ke wilayah masker mangrove (Ranong, Thailand Selatan)
+  const handleFocusMangroveArea = () => {
+    setFlyTarget({
+      bbox: [98.50, 9.78, 98.66, 9.96],
+      epsg: 4326,
+      timestamp: Date.now(),
+    })
+    setIsModelCoverageVisible(true)
+    message.success(t('focusedMangroveArea') || 'Peta diarahkan ke wilayah hutan mangrove Ranong (Thailand Selatan)')
+  }
+
   return (
     <div className="dashboard-root relative h-[100dvh] w-full overflow-hidden bg-white dark:bg-slate-950">
       {/* Backdrop gelap di mobile (<1024px) jika salah satu sidebar dibuka */}
@@ -179,7 +201,18 @@ const Dashboard = () => {
         isAddressLoading={isAddressLoading}
         pointAddress={pointAddress}
         onCloseArea={handleCloseArea}
-        onOpenGeeAnalysis={() => setIsGeeModalOpen(true)}
+        onOpenVegetationIndices={() => {
+          setGeeModalSection('vegetation')
+          setIsGeeModalOpen(true)
+        }}
+        onOpenAgbAnalysis={() => {
+          setGeeModalSection('biomass')
+          setIsGeeModalOpen(true)
+        }}
+        onOpenGeeAnalysis={(section) => {
+          setGeeModalSection(section === 'biomass' || section === 'agb' ? 'biomass' : 'vegetation')
+          setIsGeeModalOpen(true)
+        }}
         onOpenDatasetExtractor={() => setIsDatasetExtractorOpen(true)}
         onUploadAoi={handleAoiUploaded}
         isEditingRoi={isEditingRoi}
@@ -200,6 +233,9 @@ const Dashboard = () => {
         isOpen={isLeftOpen}
         onToggle={handleToggleLeft}
         otherSidebarOpen={isRightOpen}
+        onFocusMangroveArea={handleFocusMangroveArea}
+        isModelCoverageVisible={isModelCoverageVisible}
+        onToggleModelCoverage={() => setIsModelCoverageVisible((prev) => !prev)}
       />
 
       {/* Sidebar Spasial AstraGIS di Kanan Atas */}
@@ -221,7 +257,12 @@ const Dashboard = () => {
       {/* Peta Utama */}
       <MapContainer
         center={defaultCenter}
-        zoom={5}
+        zoom={12}
+        minZoom={2} // <-- KUNCINYA DI SINI: Makin gede angkanya, makin sempit zoom out-nya
+        maxZoom={18}
+        maxBounds={batasBumi} // <-- Ngunci batas kutub utara & selatan
+        maxBoundsViscosity={1.0} // <-- Solid kaga tembus ke area abu-abu di kutub
+        worldCopyJump={true} // <-- Looping horizontal mulus ketika melewati garis tanggal/ujung timur-barat
         zoomControl={false}
         scrollWheelZoom={true}
         className="h-full w-full z-0 cursor-crosshair"
@@ -235,7 +276,13 @@ const Dashboard = () => {
           hasAoi={isAreaClosed && areaPoints.length >= 3}
           isAoiVisible={isAoiVisible}
           onToggleAoi={() => setIsAoiVisible((prev) => !prev)}
+          onFocusMangroveArea={handleFocusMangroveArea}
+          isModelCoverageVisible={isModelCoverageVisible}
+          onToggleModelCoverage={() => setIsModelCoverageVisible((prev) => !prev)}
         />
+
+        {/* Layer Visual Batas Wilayah Masker Model Mangrove */}
+        <ModelCoverageLayer isVisible={isModelCoverageVisible} />
 
         {/* TileLayer dasar */}
         <TileLayer
@@ -316,12 +363,14 @@ const Dashboard = () => {
         <WmsLayerLegend visibleLayers={visibleLayers} t={t} />
       </div>
 
-      {/* Modal Analisis Komputasi Citra Satelit GEE */}
+      {/* Modal Analisis Komputasi Citra Satelit GEE / Model AGB */}
       <GeeAnalysisModal
         isOpen={isGeeModalOpen}
         onClose={() => setIsGeeModalOpen(false)}
+        initialSection={geeModalSection}
         areaPoints={areaPoints}
         areaHectares={areaHectares}
+        onEnableAgbLayer={(layer) => handleToggleLayer(layer, true)}
         onApplyGeePreviewLayer={setGeePreviewLayer}
         onClearGeePreviewLayer={() => setGeePreviewLayer(null)}
         activeGeeLayer={geePreviewLayer}

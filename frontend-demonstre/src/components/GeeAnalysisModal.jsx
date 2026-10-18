@@ -11,6 +11,7 @@ import {
   Spin,
   Tooltip,
   Badge,
+  Progress,
 } from 'antd'
 import {
   ThunderboltOutlined,
@@ -110,12 +111,14 @@ const GEE_SECTIONS = [
 const GeeAnalysisModal = ({
   isOpen,
   onClose,
+  initialSection = 'vegetation',
   areaPoints = [],
   areaHectares = 0,
   onApplyGeePreviewLayer,
   onClearGeePreviewLayer,
   activeGeeLayer,
   onLayerSavedToAstraGis,
+  onEnableAgbLayer,
   isAoiVisible = true,
   onToggleAoi,
   isAoiFillVisible = true,
@@ -124,8 +127,27 @@ const GeeAnalysisModal = ({
   const { t } = useLanguage()
 
   // State Pilihan Indeks
-  const [selectedSection, setSelectedSection] = useState('vegetation')
-  const [selectedIndex, setSelectedIndex] = useState('ndvi')
+  const [selectedSection, setSelectedSection] = useState(initialSection || 'vegetation')
+  const [selectedIndex, setSelectedIndex] = useState(initialSection === 'biomass' ? 'agb' : 'ndvi')
+
+  // Filter kategori berdasarkan mode tombol pemanggil
+  const activeSections = React.useMemo(() => {
+    if (initialSection === 'biomass') {
+      return GEE_SECTIONS.filter((sec) => sec.key === 'biomass')
+    }
+    return GEE_SECTIONS.filter((sec) => sec.key !== 'biomass')
+  }, [initialSection])
+
+  useEffect(() => {
+    if (isOpen) {
+      const targetSec = initialSection || 'vegetation'
+      setSelectedSection(targetSec)
+      const sec = GEE_SECTIONS.find((s) => s.key === targetSec)
+      if (sec && sec.indices.length > 0) {
+        setSelectedIndex(sec.indices[0].id)
+      }
+    }
+  }, [isOpen, initialSection])
 
   // State Parameter Satelit
   const [activeQuickMonths, setActiveQuickMonths] = useState(6)
@@ -150,6 +172,10 @@ const GeeAnalysisModal = ({
   // State Eksekusi Analisis
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState(null)
+  const [analysisJob, setAnalysisJob] = useState(null)
+  const [analysisJobHistory, setAnalysisJobHistory] = useState([])
+  const [analysisNotifications, setAnalysisNotifications] = useState([])
+  const [modelInfo, setModelInfo] = useState(null)
 
   // State Simpan ke AstraGIS
   const [layerName, setLayerName] = useState('')
@@ -163,7 +189,10 @@ const GeeAnalysisModal = ({
       return
     }
 
-    const headers = ['Lat', 'Long', 'NDVI', 'VV', 'VH', 'AGB_Revised_kg']
+    const headers = [
+      'Lat', 'Long', 'NDVI', 'VV', 'VH', 'AGB_Revised_kg',
+      'Unit', 'Model_Version', 'Model_Status', 'Disclaimer',
+    ]
     const rows = analysisResult.points.map((pt) => [
       pt.lat,
       pt.long,
@@ -171,12 +200,17 @@ const GeeAnalysisModal = ({
       pt.vv,
       pt.vh,
       pt.agb_revised_kg,
+      analysisResult.model_unit || modelInfo?.unit || '',
+      analysisResult.model_version || '',
+      analysisResult.model_status || '',
+      analysisResult.disclaimer || '',
     ])
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
+    const escapeCsvCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCsvCell).join(','))
+      .join('\n')
+    const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
     link.setAttribute(
@@ -197,10 +231,75 @@ const GeeAnalysisModal = ({
     }
   }, [isOpen, selectedIndex])
 
+  useEffect(() => {
+    if (!isOpen) return undefined
+    let isCurrent = true
+    geeApi.getModelStatus().then((model) => {
+      if (isCurrent) setModelInfo(model)
+    }).catch((error) => console.error('Failed to load AGB model status:', error))
+    geeApi.listAnalysisJobs().then((jobs) => {
+      if (isCurrent) setAnalysisJobHistory(jobs)
+    }).catch((error) => console.error('Failed to load AGB job history:', error))
+    geeApi.listAnalysisNotifications().then((items) => {
+      if (isCurrent) setAnalysisNotifications(items)
+    }).catch((error) => console.error('Failed to load AGB notifications:', error))
+    return () => { isCurrent = false }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!analysisJob || !['queued', 'running'].includes(analysisJob.status)) return undefined
+    const intervalId = window.setInterval(async () => {
+      try {
+        const updatedJob = await geeApi.getAnalysisJob(analysisJob.id)
+        setAnalysisJob(updatedJob)
+        setAnalysisJobHistory((jobs) => [
+          updatedJob,
+          ...jobs.filter((job) => job.id !== updatedJob.id),
+        ])
+        if (!['queued', 'running'].includes(updatedJob.status)) {
+          if (updatedJob.status === 'succeeded' && updatedJob.result?.layer?.id && onEnableAgbLayer) {
+            const layer = {
+              ...updatedJob.result.layer,
+              layer_name: updatedJob.result.layer.name,
+              geoserver_name: updatedJob.result.layer.name,
+              layer_type: 'raster',
+              type: 'raster',
+            }
+            const registeredJob = await geeApi.registerAnalysisLayer(updatedJob.id, layer)
+            setAnalysisJob(registeredJob)
+            setAnalysisJobHistory((jobs) => [
+              registeredJob,
+              ...jobs.filter((job) => job.id !== registeredJob.id),
+            ])
+            onEnableAgbLayer(registeredJob.result.layer)
+          }
+          const [jobs, items] = await Promise.all([
+            geeApi.listAnalysisJobs(),
+            geeApi.listAnalysisNotifications(),
+          ])
+          setAnalysisJobHistory(jobs)
+          setAnalysisNotifications(items)
+        }
+      } catch (error) {
+        console.error('Failed to poll AGB job:', error)
+      }
+    }, 3000)
+    return () => window.clearInterval(intervalId)
+  }, [analysisJob?.id, analysisJob?.status, onEnableAgbLayer])
+
   // Handle Quick Date Presets
   const setQuickDate = (months) => {
     setActiveQuickMonths(months)
     setDateRange([dayjs().subtract(months, 'month'), dayjs()])
+  }
+
+  const handleCancelAnalysisJob = async () => {
+    if (!analysisJob) return
+    try {
+      setAnalysisJob(await geeApi.cancelAnalysisJob(analysisJob.id))
+    } catch (error) {
+      message.error(error.response?.data?.detail || t('agbCancelFailed'))
+    }
   }
 
   // Jalankan Analisis GEE
@@ -212,7 +311,7 @@ const GeeAnalysisModal = ({
     }
 
     if (!areaPoints || areaPoints.length < 3) {
-      message.error('Area poligon minimal harus memiliki 3 titik koordinat.')
+      message.warning(t('noAoiAnalysisWarning'))
       return
     }
 
@@ -229,6 +328,31 @@ const GeeAnalysisModal = ({
         cloud_percentage: cloudPct,
       }
 
+      if (selectedIndex === 'agb') {
+        const coordinates = areaPoints.map((point) => [point[1], point[0]])
+        const firstCoordinate = coordinates[0]
+        const lastCoordinate = coordinates[coordinates.length - 1]
+        if (firstCoordinate[0] !== lastCoordinate[0] || firstCoordinate[1] !== lastCoordinate[1]) {
+          coordinates.push([...coordinates[0]])
+        }
+        const job = await geeApi.createAnalysisJob({
+          aoi_geojson: { type: 'Polygon', coordinates: [coordinates] },
+          start_date: startDateStr,
+          end_date: endDateStr,
+        })
+        setAnalysisJob(job)
+        setAnalysisResult(null)
+        setAnalysisJobHistory((jobs) => [job, ...jobs.filter((item) => item.id !== job.id)])
+        const [jobs, notifications] = await Promise.all([
+          geeApi.listAnalysisJobs(),
+          geeApi.listAnalysisNotifications(),
+        ])
+        setAnalysisJobHistory(jobs)
+        setAnalysisNotifications(notifications)
+        message.info(t('agbJobQueued'))
+        return
+      }
+
       const result = await geeApi.analyzeArea(payload)
       setAnalysisResult(result)
       message.success('Komputasi Google Earth Engine selesai!')
@@ -241,6 +365,10 @@ const GeeAnalysisModal = ({
           statistics: result.statistics,
           palette: result.palette,
           points: result.points,
+          modelVersion: result.model_version,
+          modelStatus: result.model_status,
+          modelUnit: result.model_unit,
+          disclaimer: result.disclaimer,
           opacity: 0.85,
         })
         // Otomatis nonaktifkan fill hijau AOI agar warna raster GEE murni dan jelas terlihat
@@ -312,6 +440,10 @@ const GeeAnalysisModal = ({
         statistics: analysisResult.statistics,
         palette: analysisResult.palette,
         points: analysisResult.points,
+        modelVersion: analysisResult.model_version,
+        modelStatus: analysisResult.model_status,
+        modelUnit: analysisResult.model_unit,
+        disclaimer: analysisResult.disclaimer,
         opacity: 0.85,
       })
     }
@@ -346,15 +478,19 @@ const GeeAnalysisModal = ({
         <div className="flex items-center justify-between gap-2.5 w-full">
           {/* Header Kiri: Icon, Judul, & Subtitle Area */}
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
-              🛰️
+            <div className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0 ${
+              initialSection === 'biomass'
+                ? 'bg-gradient-to-br from-violet-600 to-indigo-600 shadow-indigo-200'
+                : 'bg-emerald-600'
+            }`}>
+              {initialSection === 'biomass' ? '🤖' : '🛰️'}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-sm sm:text-base font-bold text-gray-800 leading-tight truncate">
-                {t('geeAnalysisTitle')}
+                {initialSection === 'biomass' ? t('agbModalTitle') : t('geeAnalysisTitle')}
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-500 font-normal truncate">
-                {t('geeAnalysisSubtitle')} • {areaHectares.toFixed(2)} Ha ({areaPoints.length} Titik)
+                {initialSection === 'biomass' ? t('agbModalSubtitle') : t('geeAnalysisSubtitle')} • {areaPoints && areaPoints.length >= 3 ? `${areaHectares.toFixed(2)} Ha (${areaPoints.length} ${t('pointsUnit')})` : t('noAoiSelected')}
               </p>
             </div>
           </div>
@@ -392,41 +528,43 @@ const GeeAnalysisModal = ({
       <div className="flex flex-col gap-4 mt-2 max-h-[78vh] overflow-y-auto pr-1">
         {/* TAB PILIHAN KATEGORI INDEKS */}
         <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200/80">
-          <div className="flex gap-2 border-b border-gray-200 pb-2 mb-3 overflow-x-auto no-scrollbar">
-            {GEE_SECTIONS.map((sec) => (
-              <button
-                key={sec.key}
-                type="button"
-                onClick={() => {
-                  setSelectedSection(sec.key)
-                  if (!sec.underDevelopment) {
-                    setSelectedIndex(sec.indices[0].id)
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                  selectedSection === sec.key
-                    ? sec.underDevelopment
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/70'
-                }`}
-              >
-                <span>{sec.icon}</span>
-                <span>{t(sec.titleKey)}</span>
-                {sec.underDevelopment && (
-                  <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-semibold uppercase tracking-wider ${
-                      selectedSection === sec.key
-                        ? 'bg-amber-200 text-amber-950'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {t('underDevBadge')}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          {activeSections.length > 1 && (
+            <div className="flex gap-2 border-b border-gray-200 pb-2 mb-3 overflow-x-auto no-scrollbar">
+              {activeSections.map((sec) => (
+                <button
+                  key={sec.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSection(sec.key)
+                    if (!sec.underDevelopment) {
+                      setSelectedIndex(sec.indices[0].id)
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    selectedSection === sec.key
+                      ? sec.underDevelopment
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/70'
+                  }`}
+                >
+                  <span>{sec.icon}</span>
+                  <span>{t(sec.titleKey)}</span>
+                  {sec.underDevelopment && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-semibold uppercase tracking-wider ${
+                        selectedSection === sec.key
+                          ? 'bg-amber-200 text-amber-950'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {t('underDevBadge')}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* DAFTAR INDEKS PADA KATEGORI AKTIF */}
           {GEE_SECTIONS.filter((s) => s.key === selectedSection).map((sec) => (
@@ -457,6 +595,7 @@ const GeeAnalysisModal = ({
                 {sec.indices.map((idx) => {
                   const isUnderDev = sec.underDevelopment || idx.underDevelopment
                   const isSelected = selectedIndex === idx.id
+                  const isAgb = idx.id === 'agb'
                   const localizedName = t(idx.nameKey)
                   const localizedTag = t(idx.tagKey)
                   const localizedDesc = t(idx.descKey)
@@ -478,7 +617,11 @@ const GeeAnalysisModal = ({
                         isUnderDev
                           ? 'bg-gray-50/80 border-dashed border-gray-300 opacity-60 cursor-not-allowed select-none'
                           : isSelected
-                          ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm cursor-pointer'
+                          ? isAgb
+                            ? 'bg-gradient-to-r from-violet-50 to-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/25 shadow-sm cursor-pointer'
+                            : 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm cursor-pointer'
+                          : isAgb
+                          ? 'bg-white border-indigo-200/80 hover:border-indigo-300 hover:bg-indigo-50/20 cursor-pointer'
                           : 'bg-white border-gray-200 hover:border-gray-300 cursor-pointer'
                       }`}
                       title={isUnderDev ? t('underDevNoticeShort') : localizedName}
@@ -486,13 +629,16 @@ const GeeAnalysisModal = ({
                       <div className="flex flex-col h-full justify-between gap-1.5">
                         <div>
                           <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                            <span className="font-bold text-xs sm:text-sm text-gray-800 truncate" title={localizedName}>
-                              {shortName}
+                            <span className="font-bold text-xs sm:text-sm text-gray-800 truncate flex items-center gap-1.5" title={localizedName}>
+                              {isAgb && <span>🤖</span>}
+                              <span>{shortName}</span>
                             </span>
                             <span
                               className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${
                                 isUnderDev
                                   ? 'bg-amber-100 text-amber-800 border border-amber-200/60'
+                                  : isAgb
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200 font-semibold'
                                   : 'bg-gray-100 text-gray-600'
                               }`}
                             >
@@ -600,36 +746,373 @@ const GeeAnalysisModal = ({
         {/* TOMBOL JALANKAN ANALISIS */}
         {(() => {
           const isUnderDev = GEE_SECTIONS.find((s) => s.key === selectedSection)?.underDevelopment
+          const isAgb = selectedIndex === 'agb'
+          const hasValidAoi = areaPoints && areaPoints.length >= 3
+          const isRunDisabled = isAnalyzing || isUnderDev || !hasValidAoi
+
           return (
-            <button
-              type="button"
-              onClick={handleRunAnalysis}
-              disabled={isAnalyzing || isUnderDev}
-              className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
-                isUnderDev
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-90 shadow-none'
-                  : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white cursor-pointer'
-              }`}
-            >
-              {isUnderDev ? (
-                <>
-                  <span>🚧</span>
-                  <span>{t('btnUnderDevelopment')}</span>
-                </>
-              ) : isAnalyzing ? (
-                <>
-                  <Spin size="small" />
-                  <span>{t('runningAnalysis')}</span>
-                </>
-              ) : (
-                <>
-                  <ThunderboltOutlined className="text-sm font-extrabold" />
-                  <span>{t('runAnalysisBtn')}</span>
-                </>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleRunAnalysis}
+                disabled={isRunDisabled}
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
+                  isUnderDev
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-90 shadow-none'
+                    : !hasValidAoi
+                    ? 'bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed opacity-80 shadow-none'
+                    : isAgb
+                    ? 'bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-700 hover:via-indigo-700 hover:to-purple-800 active:from-violet-900 active:to-purple-900 shadow-indigo-300/50 shadow-md text-white cursor-pointer ring-2 ring-indigo-400/30'
+                    : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white cursor-pointer'
+                }`}
+              >
+                {isUnderDev ? (
+                  <>
+                    <span>🚧</span>
+                    <span>{t('btnUnderDevelopment')}</span>
+                  </>
+                ) : isAnalyzing ? (
+                  <>
+                    <Spin size="small" />
+                    <span>{isAgb ? t('runningAgbAnalysis') : t('runningAnalysis')}</span>
+                  </>
+                ) : isAgb ? (
+                  <>
+                    <span className="text-sm">🤖</span>
+                    <span>{t('runAgbModelBtn')}</span>
+                  </>
+                ) : (
+                  <>
+                    <ThunderboltOutlined className="text-sm font-extrabold" />
+                    <span>{t('runAnalysisBtn')}</span>
+                  </>
+                )}
+              </button>
+
+              {!hasValidAoi && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2 text-center text-[11px] text-amber-900 flex items-center justify-center gap-1.5 font-medium">
+                  <span>💡</span>
+                  <span>{t('noAoiAnalysisWarning')}</span>
+                </div>
               )}
-            </button>
+            </div>
           )
         })()}
+
+        {selectedIndex === 'agb' && modelInfo && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+            <div className="mb-1 flex flex-wrap items-center gap-2 font-bold">
+              <Badge color="orange" text={t('agbBetaBadge')} />
+              <span>{modelInfo.model_version}</span>
+            </div>
+            <p>{t('agbBetaDisclaimer')}</p>
+            <p className="mt-1 font-semibold">{t('agbUnitLabel')}: {t('agbUnitVal')}</p>
+            {!modelInfo.metrics_display_allowed && (
+              <p className="mt-1 text-amber-900/80">{t('agbMetricsUnavailable')}</p>
+            )}
+          </div>
+        )}
+
+        {selectedIndex === 'agb' && analysisJob && (
+          <div className={`rounded-xl border p-3 text-xs ${
+            analysisJob.status === 'succeeded'
+              ? 'border-emerald-300 bg-emerald-50/60'
+              : analysisJob.status === 'failed'
+              ? 'border-red-300 bg-red-50/70'
+              : analysisJob.status === 'running'
+              ? 'border-blue-300 bg-blue-50/60'
+              : 'border-amber-300 bg-white'
+          }`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  color={
+                    analysisJob.status === 'succeeded'
+                      ? 'green'
+                      : analysisJob.status === 'failed'
+                      ? 'red'
+                      : analysisJob.status === 'running'
+                      ? 'blue'
+                      : 'orange'
+                  }
+                />
+                <span className="font-bold text-gray-800">
+                  {t('agbJobStatus')}: {t(`agbJobStatus_${analysisJob.status}`)}
+                </span>
+                <span className="text-gray-500">
+                  {analysisJob.model_version} · {t('agbUnitVal')}
+                </span>
+              </div>
+              {['queued', 'running'].includes(analysisJob.status) && (
+                <button
+                  type="button"
+                  onClick={handleCancelAnalysisJob}
+                  className="rounded-lg border border-red-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 transition"
+                >
+                  {t('agbCancelJob')}
+                </button>
+              )}
+            </div>
+
+            <p className="mt-1 text-[11px] text-gray-500">{t('agbBetaDisclaimer')}</p>
+            <p className="mt-1 text-gray-700">{t('agbJobTileCount')}: <span className="font-semibold">{analysisJob.tile_count}</span></p>
+
+            {(analysisJob.warnings || []).map((warning) => (
+              <p key={warning} className="mt-1 text-amber-800">{warning}</p>
+            ))}
+
+            {analysisJob.status === 'queued' && (
+              <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 flex items-center gap-2 text-amber-900">
+                <span>⏳</span>
+                <p className="font-semibold text-xs">{t('agbWorkerPending')}</p>
+              </div>
+            )}
+
+            {analysisJob.status === 'running' && (
+              <div className="mt-2.5 rounded-xl border border-blue-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2 font-bold text-blue-900">
+                    <Spin size="small" />
+                    <span>{t('agbJobRunningDesc')}</span>
+                  </div>
+                  <span className="font-mono font-bold text-blue-700">{analysisJob.progress || 0}%</span>
+                </div>
+                <Progress percent={analysisJob.progress || 0} size="small" status="active" />
+              </div>
+            )}
+
+            {analysisJob.status === 'failed' && (
+              <div className="mt-2.5 rounded-xl border border-red-200 bg-white p-3 shadow-xs flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-red-700">
+                  <span>❌</span>
+                  <span>{t('agbFailedDesc')}</span>
+                </div>
+                <div className="rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-950 flex flex-col gap-1">
+                  <span className="font-bold text-red-800">{t('agbFailureReason')}:</span>
+                  <span className="font-mono text-red-900 text-[11px] break-words">
+                    {analysisJob.error_message || t('agbDefaultFailureReason')}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {analysisJob.status === 'succeeded' && analysisJob.result?.statistics && (
+              <div className="mt-2.5 rounded-xl border border-emerald-200 bg-white p-3 shadow-xs flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-emerald-900">
+                    <CheckCircleOutlined className="text-emerald-600 text-base" />
+                    <span>{t('agbJobCompleteDesc')}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-300">
+                    ✓ {t('agbJobStatus_succeeded')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs mt-1">
+                  <div className="bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                    <p className="text-[10px] text-gray-500 font-medium">{t('agbValidPredictionPixels')}</p>
+                    <p className="font-mono font-bold text-emerald-900">
+                      {analysisJob.result.statistics.valid_pixel_count?.toLocaleString() || 0}
+                    </p>
+                  </div>
+                  <div className="bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                    <p className="text-[10px] text-gray-500 font-medium">{t('agbPredictionRange')}</p>
+                    <p className="font-mono font-bold text-emerald-900">
+                      {analysisJob.result.statistics.minimum_kg_per_pixel} – {analysisJob.result.statistics.maximum_kg_per_pixel} {t('agbUnitVal')}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-emerald-900/80">
+                  {t('agbExtrapolation')}: <span className="font-bold font-mono">{analysisJob.result.statistics.extrapolation_percentage}%</span>
+                </p>
+
+                {analysisJob.result.layer?.name && (
+                  <div className="flex items-center justify-between gap-2 bg-emerald-50/80 p-2 rounded-lg border border-emerald-200">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span>🗺️</span>
+                      <span className="font-medium text-xs truncate" title={analysisJob.result.layer.name}>
+                        {analysisJob.result.layer.name}
+                      </span>
+                    </div>
+                    {onEnableAgbLayer && (
+                      <button
+                        type="button"
+                        onClick={() => onEnableAgbLayer(analysisJob.result.layer)}
+                        className="shrink-0 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition"
+                      >
+                        {t('agbOpenLayer')}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {analysisJob.result.artifact?.download_url && (
+                  <a
+                    className="mt-1 inline-flex items-center gap-1.5 font-bold text-xs text-emerald-700 hover:text-emerald-800 underline"
+                    href={geeApi.getAnalysisDownloadUrl(analysisJob.id)}
+                  >
+                    <DownloadOutlined /> {t('agbDownloadPredictionRaster')}
+                  </a>
+                )}
+                {(analysisJob.result.warnings || []).map((warning) => (
+                  <p key={warning} className="mt-1 text-amber-800">{warning}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedIndex === 'agb' && (analysisJobHistory.length > 0 || analysisNotifications.length > 0) && (
+          <div className="rounded-xl border border-gray-200 bg-white p-3 text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-bold text-gray-800 flex items-center gap-1.5">
+                <span>🕒</span>
+                <span>{t('agbJobHistory')}</span>
+              </h4>
+              <span className="text-[11px] text-gray-400 font-mono">
+                {analysisJobHistory.length} jobs
+              </span>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {analysisJobHistory.slice(0, 5).map((job) => {
+                const isComplete = job.status === 'succeeded'
+                const isFailed = job.status === 'failed'
+                const isRunning = job.status === 'running'
+                const isQueued = job.status === 'queued'
+
+                return (
+                  <li
+                    key={job.id}
+                    className={`rounded-xl p-3 border transition-all ${
+                      isComplete
+                        ? 'border-emerald-200 bg-emerald-50/30 hover:bg-emerald-50/60'
+                        : isFailed
+                        ? 'border-red-200 bg-red-50/40 hover:bg-red-50/70'
+                        : isRunning
+                        ? 'border-blue-200 bg-blue-50/50'
+                        : 'border-gray-200 bg-gray-50/60'
+                    }`}
+                  >
+                    {/* Header baris: Version, Unit, Status Badge */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          color={isComplete ? 'green' : isFailed ? 'red' : isRunning ? 'blue' : 'orange'}
+                        />
+                        <span className="font-bold text-gray-800">{job.model_version}</span>
+                        <span className="text-gray-400">·</span>
+                        <span className="text-[11px] text-gray-600">{t('agbUnitVal')}</span>
+                      </div>
+
+                      {/* Status Tag */}
+                      <div>
+                        {isComplete && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-300">
+                            ✓ {t('agbJobStatus_succeeded')}
+                          </span>
+                        )}
+                        {isFailed && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[10px] border border-red-300">
+                            ❌ {t('agbJobStatus_failed')}
+                          </span>
+                        )}
+                        {isRunning && (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] border border-blue-300 flex items-center gap-1">
+                            <Spin size="small" /> {t('agbJobStatus_running')}
+                          </span>
+                        )}
+                        {isQueued && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-300">
+                            ⏳ {t('agbJobStatus_queued')}
+                          </span>
+                        )}
+                        {job.status === 'cancelled' && (
+                          <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 font-medium text-[10px]">
+                            {t('agbJobStatus_cancelled')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Metadata: Tile count, Date, ID */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-1">
+                      <span>{job.tile_count} {t('agbJobTileCount').toLowerCase()}</span>
+                      {job.created_at && (
+                        <span>{dayjs(job.created_at).format('YYYY-MM-DD HH:mm')}</span>
+                      )}
+                      <span className="font-mono text-[10px] text-gray-400">ID: {job.id.slice(0, 8)}...</span>
+                    </div>
+
+                    {/* DETAIL SESUAI STATUS */}
+                    {/* 1. Jika FAILED: Tampilkan alasan kegagalan */}
+                    {isFailed && (
+                      <div className="mt-2 rounded-lg bg-white/90 border border-red-200 p-2.5 text-[11px] text-red-950 flex flex-col gap-1">
+                        <div className="flex items-center gap-1 font-bold text-red-800">
+                          <span>⚠️</span>
+                          <span>{t('agbFailureReason')}:</span>
+                        </div>
+                        <p className="font-mono text-red-900 bg-red-50/70 p-1.5 rounded border border-red-100 break-words leading-relaxed">
+                          {job.error_message || t('agbDefaultFailureReason')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 2. Jika RUNNING: Tampilkan progres */}
+                    {isRunning && (
+                      <div className="mt-2 bg-white/80 p-2 rounded-lg border border-blue-100">
+                        <div className="flex justify-between text-[11px] font-semibold text-blue-800 mb-1">
+                          <span>{t('agbJobRunningDesc')}</span>
+                          <span className="font-mono">{job.progress || 0}%</span>
+                        </div>
+                        <Progress percent={job.progress || 0} size="small" status="active" />
+                      </div>
+                    )}
+
+                    {/* 3. Jika COMPLETE: Tampilkan konfirmasi & tombol aksi */}
+                    {isComplete && (
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-emerald-100 text-[11px]">
+                        <span className="text-emerald-800 font-medium">
+                          {t('agbJobCompleteDesc')}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {job.result?.layer && onEnableAgbLayer && (
+                            <button
+                              type="button"
+                              onClick={() => onEnableAgbLayer(job.result.layer)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded transition cursor-pointer"
+                            >
+                              {t('agbOpenLayer')}
+                            </button>
+                          )}
+                          {job.result?.artifact?.download_url && (
+                            <a
+                              className="text-emerald-700 hover:text-emerald-800 font-semibold underline text-[10px]"
+                              href={geeApi.getAnalysisDownloadUrl(job.id)}
+                            >
+                              GeoTIFF
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {analysisNotifications.length > 0 && (
+              <div className="mt-3 border-t border-gray-100 pt-2">
+                <h5 className="mb-1 font-semibold text-gray-700">{t('agbNotifications')}</h5>
+                {analysisNotifications.slice(0, 3).map((item) => (
+                  <div key={item.id} className="mb-1.5 p-2 rounded-lg bg-gray-50 border border-gray-100 text-[11px]">
+                    <span className="font-bold text-gray-700">{item.title}</span>
+                    <p className="text-gray-600 mt-0.5">{item.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* HASIL ANALISIS GEE */}
         {analysisResult && (
@@ -686,43 +1169,31 @@ const GeeAnalysisModal = ({
             </div>
 
             {/* GRID METRIK STATISTIK */}
-            <div className={`grid gap-2 text-xs ${analysisResult.statistics.mangrove_area_hectares && analysisResult.analysis_type === 'agb' ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
                 <p className="text-[11px] text-gray-500 font-medium">{t('minValLabel')}</p>
                 <p className="font-mono font-bold text-gray-800 text-sm">
-                  {analysisResult.statistics.min} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
+                  {analysisResult.statistics.min} {analysisResult.analysis_type === 'agb' ? t('agbUnitVal') : ''}
                 </p>
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
                 <p className="text-[11px] text-gray-500 font-medium">{t('maxValLabel')}</p>
                 <p className="font-mono font-bold text-gray-800 text-sm">
-                  {analysisResult.statistics.max} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
+                  {analysisResult.statistics.max} {analysisResult.analysis_type === 'agb' ? t('agbUnitVal') : ''}
                 </p>
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
-                <p className="text-[11px] text-gray-500 font-medium">
-                  {analysisResult.analysis_type === 'agb' ? t('meanCanopyBiomassLabel') : t('meanValLabel')}
-                </p>
-                <p className="font-mono font-bold text-emerald-700 text-sm">
-                  {analysisResult.statistics.mean} {analysisResult.analysis_type === 'agb' ? 'kg' : ''}
-                </p>
-              </div>
-              {analysisResult.statistics.mangrove_area_hectares && analysisResult.analysis_type === 'agb' && (
-                <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-300">
-                  <p className="text-[11px] text-emerald-800 font-bold flex items-center gap-1">
-                    <span>🌿</span> {t('mangroveAreaLabel')}
-                  </p>
-                  <p className="font-mono font-extrabold text-emerald-950 text-sm">
-                    {analysisResult.statistics.mangrove_area_hectares} Ha
-                  </p>
-                </div>
+              {analysisResult.analysis_type !== 'agb' && (
+                <>
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
+                    <p className="text-[11px] text-gray-500 font-medium">{t('meanValLabel')}</p>
+                    <p className="font-mono font-bold text-emerald-700 text-sm">{analysisResult.statistics.mean}</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
+                    <p className="text-[11px] text-gray-500 font-medium">{t('totalAoiAreaLabel')}</p>
+                    <p className="font-mono font-bold text-gray-800 text-sm">{analysisResult.statistics.area_hectares} Ha</p>
+                  </div>
+                </>
               )}
-              <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
-                <p className="text-[11px] text-gray-500 font-medium">{t('totalAoiAreaLabel') || 'Luas Total Poligon'}</p>
-                <p className="font-mono font-bold text-gray-800 text-sm">
-                  {analysisResult.statistics.area_hectares} Ha
-                </p>
-              </div>
             </div>
 
             {/* KARTU MODEL MACHINE LEARNING AGB & UNDUH CSV (FORMAT EXCEL) */}
@@ -733,16 +1204,14 @@ const GeeAnalysisModal = ({
                     <span className="text-xl">🤖</span>
                     <div>
                       <h5 className="font-bold text-xs text-emerald-950 flex items-center gap-1.5 flex-wrap">
-                        <span>{t('mlModelBadge') || 'Model ML LightGBM Terverifikasi'}</span>
+                        <span>{t('mlModelBadge')}</span>
+                        <Badge color="orange" text={t('agbBetaBadge')} />
                         <span className="text-[10px] bg-emerald-200 text-emerald-900 font-mono px-1.5 py-0.5 rounded-md font-semibold">
-                          best_mangrove_agb_model.joblib
-                        </span>
-                        <span className="text-[10px] bg-teal-100 text-teal-800 border border-teal-300 px-2 py-0.5 rounded-full font-semibold">
-                          ✨ {t('fullPixelMethodBadge')}
+                          {analysisResult.model_version}
                         </span>
                       </h5>
                       <p className="text-[11px] text-emerald-800/80">
-                        {t('mlFeaturesUsed') || 'Fitur Masukan: Sentinel-1 SAR (VV, VH) + Sentinel-2 MSI (NDVI)'}
+                        {t('mlFeaturesUsed')} · {t('agbUnitVal')}
                       </p>
                     </div>
                   </div>
@@ -759,15 +1228,19 @@ const GeeAnalysisModal = ({
                   </button>
                 </div>
 
-                {/* Info Gradasi Hijau & Penjelasan */}
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-[11px] text-amber-950">
+                  <p className="font-semibold">{analysisResult.disclaimer}</p>
+                  {!analysisResult.metrics_display_allowed && <p className="mt-1">{t('agbMetricsUnavailable')}</p>}
+                </div>
+
                 <div className="bg-white/90 p-2.5 rounded-lg border border-emerald-200/80 text-[11px] flex flex-col gap-1 text-emerald-900">
                   <div className="flex items-center gap-1.5">
                     <span className="text-emerald-700 font-bold">🌿 {t('greenGradLegendNote') || 'Gradasi Hijau: Semakin besar nilainya maka warnanya semakin hijau pekat.'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium mt-0.5">
-                    <span>Rendah (&lt;250 kg)</span>
+                    <span>{t('agbLegendLow')}</span>
                     <span className="h-2 flex-1 mx-2 rounded-full shadow-inner" style={{ background: 'linear-gradient(to right, #ffffd4, #d9f0a3, #78c679, #41ab5d, #238443, #004529)' }}></span>
-                    <span className="text-emerald-950 font-bold">Sangat Lebat (&gt;2.250 kg)</span>
+                    <span className="text-emerald-950 font-bold">{t('agbLegendHigh')}</span>
                   </div>
                 </div>
               </div>
@@ -777,9 +1250,9 @@ const GeeAnalysisModal = ({
             {analysisResult.palette && (
               <div className="bg-white p-2.5 rounded-xl border border-gray-200/80">
                 <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                  <span>Min: {analysisResult.palette.min}</span>
+                  <span>Min: {analysisResult.palette.min} {analysisResult.analysis_type === 'agb' ? analysisResult.model_unit : ''}</span>
                   <span className="font-semibold text-gray-700">Visual Ramp</span>
-                  <span>Maks: {analysisResult.palette.max}</span>
+                  <span>Maks: {analysisResult.palette.max} {analysisResult.analysis_type === 'agb' ? analysisResult.model_unit : ''}</span>
                 </div>
                 <div
                   className="h-3 rounded-md w-full shadow-inner"

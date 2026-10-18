@@ -197,7 +197,11 @@ const UploadTab = ({ onUploadSuccess }) => {
       {isUploading && (
         <div className="space-y-1">
           <div className="flex justify-between text-[11px] text-gray-500 font-medium">
-            <span>{t('publishing')}</span>
+            <span>
+              {progress >= 100
+                ? t('processingGeoServer', 'Memproses & mempublikasikan ke GeoServer...')
+                : `${t('publishing')} (${progress}%)`}
+            </span>
             <span>{progress}%</span>
           </div>
           <Progress percent={progress} size="small" status="active" strokeColor="#059669" />

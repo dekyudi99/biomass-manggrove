@@ -17,6 +17,11 @@ COPY requirements.txt .
 RUN pip install -U pip && \
     pip install -r requirements.txt
 
+# Rasterio's GDAL bindings require the system Expat runtime library.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy source code
 COPY . .
 

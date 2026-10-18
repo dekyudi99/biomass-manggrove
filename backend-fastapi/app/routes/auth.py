@@ -1,10 +1,8 @@
 import logging
-import hashlib
-import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -14,9 +12,11 @@ from app.config.settings import (
     AUTH_CSRF_COOKIE_NAME,
     AUTH_SESSION_COOKIE_NAME,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
-    JWT_SECRET_KEY,
 )
 from app.dependencies.auth import get_current_user
+from app.dependencies.csrf import csrf_signature as _csrf_signature
+from app.dependencies.csrf import csrf_token_is_valid as _csrf_token_is_valid
+from app.dependencies.csrf import require_csrf
 from app.models.auth import User
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -29,47 +29,36 @@ from app.schemas.auth import (
     UserResponse,
     VerifyEmailRequest,
 )
-from app.services.auth_service import AuthService
-from app.services.email_service import EmailConfigurationError, send_verification_email
-from app.services.token_service import create_access_token
+from app.services.common.auth import AuthService, create_access_token
+from app.services.common.email import EmailConfigurationError, send_verification_email
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-SESSION_COOKIE_PATH = "/api/auth"
-CSRF_COOKIE_PATH = "/api/auth"
+SESSION_COOKIE_PATH = "/api"
+CSRF_COOKIE_PATH = "/api"
 CSRF_TOKEN_LIFETIME = timedelta(hours=12)
 
 
-def _csrf_signature(nonce: str, expires_at: int) -> str:
-    message = f"{nonce}.{expires_at}".encode("ascii")
-    return hmac.new(JWT_SECRET_KEY.encode("utf-8"), message, hashlib.sha256).hexdigest()
-
-
-def _csrf_token_is_valid(token: str) -> bool:
-    try:
-        nonce, expires_text, signature = token.split(".", 2)
-        expires_at = int(expires_text)
-    except (ValueError, TypeError):
-        return False
-    if not nonce or expires_at <= int(datetime.now(timezone.utc).timestamp()):
-        return False
-    return hmac.compare_digest(signature, _csrf_signature(nonce, expires_at))
-
-
-def require_csrf(request: Request) -> None:
-    cookie_token = request.cookies.get(AUTH_CSRF_COOKIE_NAME, "")
-    header_token = request.headers.get("X-CSRF-Token", "")
-    if (
-        not cookie_token
-        or not header_token
-        or not hmac.compare_digest(cookie_token, header_token)
-        or not _csrf_token_is_valid(cookie_token)
-    ):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "AUTH_CSRF_INVALID"})
+def _expire_legacy_auth_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key=AUTH_SESSION_COOKIE_NAME,
+        path="/api/auth",
+        secure=AUTH_COOKIE_SECURE,
+        httponly=True,
+        samesite=AUTH_COOKIE_SAMESITE,
+    )
+    response.delete_cookie(
+        key=AUTH_CSRF_COOKIE_NAME,
+        path="/api/auth",
+        secure=AUTH_COOKIE_SECURE,
+        httponly=False,
+        samesite=AUTH_COOKIE_SAMESITE,
+    )
 
 
 def _set_session_cookie(response: Response, session_token: str) -> None:
+    _expire_legacy_auth_cookies(response)
     response.set_cookie(
         key=AUTH_SESSION_COOKIE_NAME,
         value=session_token,
@@ -82,6 +71,8 @@ def _set_session_cookie(response: Response, session_token: str) -> None:
 
 
 def _clear_session_cookie(response: Response) -> None:
+    # Expire cookies set by the previous narrower path during the path rollout.
+    _expire_legacy_auth_cookies(response)
     response.delete_cookie(
         key=AUTH_SESSION_COOKIE_NAME,
         path=SESSION_COOKIE_PATH,
@@ -193,6 +184,7 @@ def get_csrf_token(response: Response):
     expires_at = int((datetime.now(timezone.utc) + CSRF_TOKEN_LIFETIME).timestamp())
     nonce = secrets.token_urlsafe(32)
     token = f"{nonce}.{expires_at}.{_csrf_signature(nonce, expires_at)}"
+    _expire_legacy_auth_cookies(response)
     response.set_cookie(
         key=AUTH_CSRF_COOKIE_NAME,
         value=token,

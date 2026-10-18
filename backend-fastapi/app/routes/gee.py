@@ -1,6 +1,15 @@
-from fastapi import APIRouter
-from app.services.gee_service import GeeAnalysisService
-from app.services.gee_catalog import PALETTES, SATELLITES_CATALOG
+from typing import Optional
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.config.database import get_db
+from app.dependencies.auth import get_optional_current_user
+from app.models.auth import User
+from app.services.vegetation_index import VegetationIndexService
+from app.services.gee_extract import DatasetExtractorService
+from app.services.gee_core import PALETTES, SATELLITES_CATALOG
+from app.services.agb_analysis import MlAgbService, get_active_model_config
+from app.services.common.spatial import record_user_layer
 from app.schemas.gee import (
     AnalyzeAreaRequest,
     DatasetDownloadRequest,
@@ -13,11 +22,13 @@ from app.schemas.gee import (
 router = APIRouter(prefix="/gee", tags=["Google Earth Engine"])
 
 
+
 @router.get("/indices")
 def get_available_indices():
     """
     Mengambil katalog indeks analisis yang tersedia, dikelompokkan ke dalam kategori.
     """
+    model = get_active_model_config()
     return {
         "categories": [
             {
@@ -84,9 +95,15 @@ def get_available_indices():
                     {
                         "id": "agb",
                         "name": "Estimasi Biomassa AGB (Model ML LightGBM: Sentinel-1 SAR + Sentinel-2)",
-                        "formula": "LightGBM Regressor f(VV, VH, NDVI) -> AGB (kg)",
-                        "description": "Model Machine Learning presisi tinggi berbasis perpaduan radar C-band Sentinel-1 dan optik Sentinel-2 untuk estimasi biomassa mangrove.",
-                        "unit": "kg (AGB)",
+                        "formula": (
+                            f"LightGBM Regressor f(VV, VH, NDVI) -> AGB "
+                            f"({model.target['unit']})"
+                        ),
+                        "description": model.disclaimer,
+                        "unit": model.target["unit"],
+                        "model_version": model.version,
+                        "model_status": model.status,
+                        "metrics_display_allowed": model.metrics_display_allowed,
                     },
                 ],
             },
@@ -101,7 +118,7 @@ async def analyze_area(req: AnalyzeAreaRequest):
     Menjalankan komputasi GEE pada koordinat poligon area.
     Mengembalikan Tile URL interaktif dan statistik ringkasan.
     """
-    return await GeeAnalysisService.analyze_area(
+    return await VegetationIndexService.analyze_area(
         coordinates=req.coordinates,
         analysis_type=req.analysis_type,
         start_date=req.start_date,
@@ -111,11 +128,15 @@ async def analyze_area(req: AnalyzeAreaRequest):
 
 
 @router.post("/save-to-astragis")
-async def save_to_astragis(req: SaveToAstraGisRequest):
+async def save_to_astragis(
+    req: SaveToAstraGisRequest,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Mengekspor GeoTIFF hasil analisis GEE ke AstraGIS dan menerapkan style otomatis.
     """
-    return await GeeAnalysisService.save_to_astragis(
+    result = await VegetationIndexService.save_to_astragis(
         coordinates=req.coordinates,
         analysis_type=req.analysis_type,
         layer_name=req.layer_name,
@@ -124,6 +145,19 @@ async def save_to_astragis(req: SaveToAstraGisRequest):
         end_date=req.end_date,
         cloud_percentage=req.cloud_percentage,
     )
+    if current_user and isinstance(result, dict) and "layer" in result:
+        layer_obj = result.get("layer") or {}
+        layer_id = layer_obj.get("id") or layer_obj.get("layer_id")
+        layer_name = layer_obj.get("name") or layer_obj.get("layer_name") or req.layer_name
+        if layer_id:
+            record_user_layer(
+                db=db,
+                user_id=current_user.id,
+                layer_id=layer_id,
+                layer_name=layer_name,
+                source="gee_analysis",
+            )
+    return result
 
 
 # =========================================================================
@@ -146,7 +180,7 @@ async def preview_satellite_dataset(req: DatasetPreviewRequest):
     """
     Menghasilkan tile preview di Leaflet untuk citra satelit mentah atau komposit band yang dipilih peneliti.
     """
-    return await GeeAnalysisService.extract_satellite_dataset_preview(
+    return await DatasetExtractorService.extract_satellite_dataset_preview(
         coordinates=req.coordinates,
         satellite=req.satellite,
         bands=req.bands,
@@ -163,7 +197,7 @@ async def get_satellite_dataset_download_url(req: DatasetDownloadRequest):
     """
     Mengekspor GeoTIFF multi-band langsung dari GEE dan menyusun dataset manifest JSON berstandar FAIR untuk ML training.
     """
-    return await GeeAnalysisService.extract_satellite_dataset_download(
+    return await DatasetExtractorService.extract_satellite_dataset_download(
         coordinates=req.coordinates,
         satellite=req.satellite,
         bands=req.bands,
@@ -177,11 +211,15 @@ async def get_satellite_dataset_download_url(req: DatasetDownloadRequest):
 
 
 @router.post("/dataset/save-to-astragis")
-async def save_satellite_dataset_to_astragis(req: DatasetSaveAstraGisRequest):
+async def save_satellite_dataset_to_astragis(
+    req: DatasetSaveAstraGisRequest,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Mengekspor dataset multi-band citra satelit dan mempublikasikannya langsung ke workspace AstraGIS GeoServer.
     """
-    return await GeeAnalysisService.save_dataset_to_astragis(
+    result = await DatasetExtractorService.save_dataset_to_astragis(
         coordinates=req.coordinates,
         satellite=req.satellite,
         bands=req.bands,
@@ -193,13 +231,26 @@ async def save_satellite_dataset_to_astragis(req: DatasetSaveAstraGisRequest):
         composite_method=req.composite_method,
         orbit_pass=req.orbit_pass,
     )
+    if current_user and isinstance(result, dict) and "layer" in result:
+        layer_obj = result.get("layer") or {}
+        layer_id = layer_obj.get("id") or layer_obj.get("layer_id")
+        layer_name = layer_obj.get("name") or layer_obj.get("layer_name") or req.layer_name
+        if layer_id:
+            record_user_layer(
+                db=db,
+                user_id=current_user.id,
+                layer_id=layer_id,
+                layer_name=layer_name,
+                source="gee_satellite",
+            )
+    return result
 
 
 @router.post("/export-agb-csv")
 async def export_agb_csv(req: ExportAgbCsvRequest):
     """
     Mengekspor dataset hasil prediksi model ML AGB ke format CSV:
-    Lat,Long,NDVI,VV,VH,AGB_Revised_kg
+    Lat,Long,NDVI,VV,VH,AGB_Revised_kg,Unit,Model_Version,Model_Status,Disclaimer
     """
     import io
     import csv
@@ -207,20 +258,41 @@ async def export_agb_csv(req: ExportAgbCsvRequest):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Lat", "Long", "NDVI", "VV", "VH", "AGB_Revised_kg"])
+    model = get_active_model_config()
+    writer.writerow([
+        "Lat", "Long", "NDVI", "VV", "VH", "AGB_Revised_kg",
+        "Unit", "Model_Version", "Model_Status", "Disclaimer",
+    ])
 
-    for pt in req.points:
+    model_samples = [
+        {
+            "lat": pt.get("lat", pt.get("latitude", 0)),
+            "lng": pt.get("long", pt.get("longitude", 0)),
+            "NDVI": pt.get("ndvi", pt.get("NDVI")),
+            "VV": pt.get("vv", pt.get("VV")),
+            "VH": pt.get("vh", pt.get("VH")),
+        }
+        for pt in req.points
+    ]
+    predicted_points = MlAgbService.process_sample_features(model_samples)["points"]
+
+    for pt in predicted_points:
         writer.writerow([
-            pt.get("lat", pt.get("latitude", "")),
-            pt.get("long", pt.get("longitude", "")),
-            pt.get("ndvi", ""),
-            pt.get("vv", ""),
-            pt.get("vh", ""),
-            pt.get("agb_revised_kg", ""),
+            pt["lat"],
+            pt["long"],
+            pt["ndvi"],
+            pt["vv"],
+            pt["vh"],
+            pt["agb_revised_kg"],
+            model.target["unit"],
+            model.version,
+            model.status,
+            model.disclaimer,
         ])
 
     output.seek(0)
-    filename = req.filename if req.filename.endswith(".csv") else f"{req.filename}.csv"
+    requested_filename = req.filename or "mangrove_agb_predictions.csv"
+    filename = requested_filename if requested_filename.endswith(".csv") else f"{requested_filename}.csv"
     response = StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",

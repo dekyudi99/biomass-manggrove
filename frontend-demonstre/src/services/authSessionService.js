@@ -2,7 +2,8 @@ import axios from 'axios'
 import { getAuthApiBaseUrl } from '../utils/apiUrl'
 
 const AUTH_API_BASE_URL = getAuthApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
-const csrfClient = axios.create({ baseURL: AUTH_API_BASE_URL, timeout: 20000, withCredentials: true })
+const createCsrfClient = (baseURL = AUTH_API_BASE_URL) =>
+  axios.create({ baseURL, timeout: 20000, withCredentials: true })
 
 let csrfToken = null
 let pendingCsrfRequest = null
@@ -12,7 +13,7 @@ export const clearAuthSession = () => {
   csrfToken = null
 }
 
-const getCsrfToken = async () => {
+const getCsrfToken = async (csrfClient) => {
   if (csrfToken) return csrfToken
   if (!pendingCsrfRequest) {
     pendingCsrfRequest = csrfClient.get('/csrf')
@@ -25,11 +26,12 @@ const getCsrfToken = async () => {
   return pendingCsrfRequest
 }
 
-export const attachCsrfProtection = (client) => {
+export const attachCsrfProtection = (client, { csrfBaseUrl = AUTH_API_BASE_URL } = {}) => {
+  const csrfClient = createCsrfClient(csrfBaseUrl)
   client.defaults.withCredentials = true
   client.interceptors.request.use(async (config) => {
     if (!['post', 'put', 'patch', 'delete'].includes((config.method || 'get').toLowerCase())) return config
-    config.headers['X-CSRF-Token'] = await getCsrfToken()
+    config.headers['X-CSRF-Token'] = await getCsrfToken(csrfClient)
     return config
   })
 
@@ -44,8 +46,13 @@ export const attachCsrfProtection = (client) => {
         return client.request(config)
       }
       if (error.response?.status === 401) {
-        clearAuthSession()
-        if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_SESSION_INVALID_EVENT))
+        const detailCode = error.response?.data?.detail?.code
+        const isAuthMe = config?.url?.includes('/auth/me')
+        const isAuthInvalid = detailCode === 'AUTH_INVALID_TOKEN' || isAuthMe
+        if (isAuthInvalid) {
+          clearAuthSession()
+          if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_SESSION_INVALID_EVENT))
+        }
       }
       return Promise.reject(error)
     },

@@ -4,11 +4,19 @@ const layerApi = {
   list: (params = {}) =>
     axiosClient.get('/layers', { params: { size: 100, ...params } }),
 
+  getByWorkspace: (workspaceId, params = {}) =>
+    axiosClient.get(`/workspaces/${workspaceId}/layers`, { params }),
+
+  getTargetWorkspaceLayers: (params = {}) =>
+    axiosClient.get('/target-workspace/layers', { params }),
+
+
   create: (formData, onProgress) =>
     axiosClient.post('/publish', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 300000,
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -57,6 +65,19 @@ const layerApi = {
             classes: [],
           },
         },
+      }
+    }
+  },
+
+  getVectorIcons: async () => {
+    try {
+      const res = await axiosClient.get('/styles/icons')
+      return {
+        data: res.data?.data || res.data || []
+      }
+    } catch {
+      return {
+        data: []
       }
     }
   },

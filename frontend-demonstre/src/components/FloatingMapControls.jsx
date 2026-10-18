@@ -19,6 +19,9 @@ const FloatingMapControls = ({
   hasAoi = false,
   isAoiVisible = true,
   onToggleAoi,
+  onFocusMangroveArea,
+  isModelCoverageVisible = true,
+  onToggleModelCoverage,
 }) => {
   const map = useMap()
   const { t } = useLanguage()
@@ -192,6 +195,45 @@ const FloatingMapControls = ({
             ) : (
               <EyeInvisibleOutlined className="text-sm sm:text-base font-bold text-white" />
             )}
+          </button>
+        </Tooltip>
+      )}
+
+      {/* Tombol Toggle Visibilitas Masker Mangrove */}
+      {onToggleModelCoverage && (
+        <Tooltip
+          title={isModelCoverageVisible ? t('hideMangroveMask') : t('showMangroveMask')}
+          placement="left"
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleModelCoverage()
+            }}
+            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-2xl backdrop-blur-md shadow-xl border flex items-center justify-center transition-all cursor-pointer ${
+              !isModelCoverageVisible
+                ? 'bg-gray-100/90 text-gray-400 border-gray-300'
+                : 'bg-white/95 text-teal-700 border-teal-300 hover:bg-teal-50 active:bg-teal-100 ring-2 ring-teal-400/30'
+            }`}
+            aria-label={isModelCoverageVisible ? t('hideMangroveMask') : t('showMangroveMask')}
+          >
+            <span className={`text-sm sm:text-base ${!isModelCoverageVisible ? 'opacity-40 grayscale' : ''}`}>🌿</span>
+          </button>
+        </Tooltip>
+      )}
+
+      {/* Tombol Fokus ke Area Model Mangrove (Ranong, Thailand Selatan) */}
+      {onFocusMangroveArea && (
+        <Tooltip title={t('focusMangroveArea') || 'Pusatkan ke Area Model Mangrove'} placement="left">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onFocusMangroveArea()
+            }}
+            className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white/95 backdrop-blur-md shadow-xl border border-teal-300 flex items-center justify-center text-teal-700 hover:bg-teal-50 active:bg-teal-100 transition-all cursor-pointer group"
+            aria-label="Pusatkan ke Area Model Mangrove"
+          >
+            <span className="text-sm sm:text-base group-hover:scale-125 transition-transform duration-200">🎯</span>
           </button>
         </Tooltip>
       )}

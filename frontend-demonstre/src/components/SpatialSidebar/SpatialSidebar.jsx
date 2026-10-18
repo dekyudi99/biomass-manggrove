@@ -15,8 +15,7 @@ import LayersTab from './tabs/LayersTab'
 import GroupsTab from './tabs/GroupsTab'
 import UploadTab from './tabs/UploadTab'
 
-import RasterStyleModal from './modals/RasterStyleModal'
-import VectorStyleModal from './modals/VectorStyleModal'
+import LayerStyleModal from './modals/LayerStyleModal'
 import SettingsModal from './modals/SettingsModal'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
@@ -165,23 +164,11 @@ const SpatialSidebar = ({
         )}
       </aside>
 
-      {/* Raster: value classification; vector: geometry-based single symbol. */}
-      <RasterStyleModal
-        key={`raster-style-${selectedLayerForStyle?.id || 'none'}`}
+      {/* Unified Layer Style Modal (AstraGIS aligned: Vector & Raster) */}
+      <LayerStyleModal
+        key={`layer-style-${selectedLayerForStyle?.id || 'none'}`}
         layer={selectedLayerForStyle}
-        open={isStyleModalOpen && (selectedLayerForStyle?.layer_type || selectedLayerForStyle?.type) === 'raster'}
-        onClose={() => {
-          setIsStyleModalOpen(false)
-          setSelectedLayerForStyle(null)
-        }}
-        onStyleApplied={(layerId, symbology) => {
-          if (onStyleApplied) onStyleApplied(layerId, symbology)
-        }}
-      />
-      <VectorStyleModal
-        key={`vector-style-${selectedLayerForStyle?.id || 'none'}`}
-        layer={selectedLayerForStyle}
-        open={isStyleModalOpen && (selectedLayerForStyle?.layer_type || selectedLayerForStyle?.type) === 'vector'}
+        open={isStyleModalOpen}
         onClose={() => {
           setIsStyleModalOpen(false)
           setSelectedLayerForStyle(null)

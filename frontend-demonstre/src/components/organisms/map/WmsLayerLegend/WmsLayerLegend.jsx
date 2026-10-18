@@ -1,3 +1,5 @@
+import { getLayerDisplayName } from '../../../../utils/wmsUtils'
+
 const hasRenderableLegend = (layer) => {
   const classes = layer.symbology?.classes || layer.saved_symbology?.classes
   const isRaster = (layer.layer_type || layer.type) === 'raster'
@@ -13,7 +15,7 @@ const WmsLayerLegend = ({ visibleLayers, t }) => {
   return (
     <section className="pointer-events-auto max-h-[40vh] w-[min(22rem,calc(100vw-6rem))] overflow-y-auto rounded-2xl border border-blue-200 bg-white/95 p-3 text-xs shadow-xl backdrop-blur-md">
       <h3 className="font-bold text-gray-800 mb-2 pb-1.5 border-b border-gray-100">
-        Legenda Layer WMS
+        {t('wmsLegendTitle') || 'Legenda Layer WMS'}
       </h3>
       <div className="space-y-3">
         {visibleLayers.map((layer) => {
@@ -26,8 +28,8 @@ const WmsLayerLegend = ({ visibleLayers, t }) => {
 
           return (
             <section key={`legend-${layer.id}`}>
-              <h4 className="font-semibold text-gray-700 truncate mb-1">
-                {layer.layer_name || layer.display_name || layer.id}
+              <h4 className="font-semibold text-gray-700 truncate mb-1" title={getLayerDisplayName(layer, t)}>
+                {getLayerDisplayName(layer, t)}
               </h4>
               {layerType === 'raster' ? (
                 <div className="space-y-1">

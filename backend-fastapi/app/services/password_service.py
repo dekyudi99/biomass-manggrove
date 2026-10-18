@@ -1,16 +1,4 @@
-from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+import sys
+from app.services.common.auth import password_service
 
-
-_PASSWORD_HASHER = PasswordHasher()
-
-
-def hash_password(password: str) -> str:
-    return _PASSWORD_HASHER.hash(password)
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    try:
-        return _PASSWORD_HASHER.verify(password_hash, password)
-    except (InvalidHashError, VerificationError, VerifyMismatchError):
-        return False
+sys.modules[__name__] = password_service
