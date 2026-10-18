@@ -23,8 +23,24 @@ def _validate_email_configuration() -> None:
         raise EmailConfigurationError("Transactional email is not configured.")
     if settings.SMTP_PORT not in (25, 465, 587):
         raise EmailConfigurationError("SMTP_PORT must be one of 25, 465, or 587.")
-    if settings.SMTP_PORT == 465 and settings.SMTP_USE_TLS:
-        raise EmailConfigurationError("Use SMTP_USE_TLS=false with implicit TLS on port 465.")
+    if settings.SMTP_USE_SSL and settings.SMTP_USE_TLS:
+        raise EmailConfigurationError("Cannot use both SMTP_USE_SSL and SMTP_USE_TLS simultaneously.")
+
+
+def _send_smtp_message(message: EmailMessage) -> None:
+    if settings.SMTP_USE_SSL or settings.SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(message)
+    else:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
+            server.ehlo()
+            if settings.SMTP_USE_TLS:
+                server.starttls()
+                server.ehlo()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(message)
+
 
 
 def send_verification_email(
@@ -85,18 +101,7 @@ def send_verification_email(
     )
 
     try:
-        if settings.SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(message)
-        else:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-                server.ehlo()
-                if settings.SMTP_USE_TLS:
-                    server.starttls()
-                    server.ehlo()
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(message)
+        _send_smtp_message(message)
     except (OSError, smtplib.SMTPException):
         logger.exception("Failed to send verification email to configured SMTP recipient.")
         raise
@@ -146,18 +151,7 @@ def send_analysis_job_email(
     )
 
     try:
-        if settings.SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(message)
-        else:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-                server.ehlo()
-                if settings.SMTP_USE_TLS:
-                    server.starttls()
-                    server.ehlo()
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(message)
+        _send_smtp_message(message)
     except (OSError, smtplib.SMTPException):
         logger.exception("Failed to send AGB job email.")
         raise

@@ -48,4 +48,9 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "").strip()
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Grovia").strip()
 SMTP_REPLY_TO = os.getenv("SMTP_REPLY_TO", "").strip()
-SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true" if SMTP_PORT == 465 else "false").strip().lower() == "true"
+SMTP_USE_TLS = (
+    False
+    if SMTP_USE_SSL or SMTP_PORT == 465
+    else os.getenv("SMTP_USE_TLS", "true").strip().lower() == "true"
+)
