@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Dropdown } from 'antd'
 import {
   AppstoreOutlined,
   FolderOutlined,
   UploadOutlined,
   SettingOutlined,
+  GlobalOutlined,
   CloseOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
@@ -33,7 +35,7 @@ const SpatialSidebar = ({
   onToggle: propOnToggle,
   otherSidebarOpen = false,
 }) => {
-  const { t } = useLanguage()
+  const { language, setLanguage, t } = useLanguage()
   const navigate = useNavigate()
 
   const [localIsOpen, setLocalIsOpen] = useState(false)
@@ -71,6 +73,36 @@ const SpatialSidebar = ({
     { id: 'upload', label: t('tabUpload'), icon: <UploadOutlined /> },
   ]
 
+  const languageMenuItems = [
+    {
+      key: 'id',
+      label: (
+        <div className="flex items-center gap-2 py-0.5">
+          <span className="text-sm">🇮🇩</span>
+          <span className="font-medium text-xs sm:text-sm">{t('langId')}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'en',
+      label: (
+        <div className="flex items-center gap-2 py-0.5">
+          <span className="text-sm">🇬🇧</span>
+          <span className="font-medium text-xs sm:text-sm">{t('langEn')}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'th',
+      label: (
+        <div className="flex items-center gap-2 py-0.5">
+          <span className="text-sm">🇹🇭</span>
+          <span className="font-medium text-xs sm:text-sm">{t('langTh')}</span>
+        </div>
+      ),
+    },
+  ]
+
   const handleOpenStyleModal = (layer) => {
     setSelectedLayerForStyle(layer)
     setIsStyleModalOpen(true)
@@ -81,23 +113,45 @@ const SpatialSidebar = ({
       <aside className="absolute top-3 right-3 sm:top-4 sm:right-4 z-[1000] flex flex-col items-end gap-2 pointer-events-none max-w-[calc(100vw-1.5rem)]">
         {/* Tombol Header (sembunyi di mobile jika sidebar kiri terbuka) */}
         <div className={`pointer-events-auto flex items-center gap-1.5 sm:gap-2 ${otherSidebarOpen ? 'hidden lg:flex' : 'flex'}`}>
+          <Dropdown
+            menu={{
+              items: languageMenuItems,
+              selectedKeys: [language],
+              onClick: ({ key }) => setLanguage(key),
+            }}
+            trigger={['click']}
+            placement="bottomRight"
+          >
+            <button
+              type="button"
+              className="bg-white/95 backdrop-blur-md h-8 w-8 sm:h-9 sm:w-9 rounded-xl shadow-lg border border-gray-200/80 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center justify-center shrink-0"
+              title={t('langSelect')}
+              aria-label={t('langSelect')}
+            >
+              <GlobalOutlined className="text-sm sm:text-base" />
+            </button>
+          </Dropdown>
+
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
-            className="bg-white/95 backdrop-blur-md p-2 sm:p-2.5 rounded-xl shadow-lg border border-gray-200/80 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+            className="bg-white/95 backdrop-blur-md h-8 w-8 sm:h-9 sm:w-9 rounded-xl shadow-lg border border-gray-200/80 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center justify-center shrink-0"
             title={t('settingsTitle')}
+            aria-label={t('settingsTitle')}
           >
             <SettingOutlined className="text-sm sm:text-base" />
           </button>
 
           <button
+            type="button"
             onClick={toggleOpen}
-            className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1.5 sm:gap-2 font-medium text-xs sm:text-sm cursor-pointer"
+            className="bg-white/95 backdrop-blur-md h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1.5 sm:gap-2 font-medium text-xs sm:text-sm cursor-pointer shrink-0"
             title={t('spatialTitle')}
           >
-            <AppstoreOutlined className="text-emerald-600 text-sm sm:text-base" />
+            <AppstoreOutlined className="text-emerald-600 text-sm sm:text-base shrink-0" />
             <span className="hidden sm:inline truncate max-w-[120px] sm:max-w-none">{t('spatialTitle')}</span>
             <span className="inline sm:hidden text-xs font-semibold text-gray-700">GIS</span>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">
               {layers.length}
             </span>
           </button>
