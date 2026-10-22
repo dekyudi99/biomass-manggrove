@@ -18,7 +18,7 @@ const LandingCta = ({ copy }) => {
           to={mapAction.to}
           variant="inverse"
           aria-busy={mapAction.isLoading}
-          className={`mt-8 ${mapAction.isLoading ? 'pointer-events-none opacity-70' : ''}`}
+          className={`mt-8 !bg-white !text-emerald-950 font-bold hover:!bg-emerald-50 hover:!text-emerald-900 shadow-xl ${mapAction.isLoading ? 'pointer-events-none opacity-70' : ''}`}
         >
           {mapAction.label}<ArrowRightOutlined aria-hidden="true" />
         </ActionLink>

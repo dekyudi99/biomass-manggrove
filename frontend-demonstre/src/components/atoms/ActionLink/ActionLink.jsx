@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 
 const VARIANTS = {
-  primary: 'bg-emerald-700 text-white shadow-lg shadow-emerald-900/10 hover:bg-emerald-800 focus-visible:ring-emerald-700',
-  secondary: 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 focus-visible:ring-emerald-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-emerald-700 dark:hover:bg-slate-700',
-  inverse: 'bg-white text-emerald-900 shadow-lg shadow-emerald-950/10 hover:bg-emerald-50 focus-visible:ring-white',
+  primary: '!bg-emerald-700 !text-white shadow-lg shadow-emerald-900/10 hover:!bg-emerald-800 hover:!text-white focus-visible:ring-emerald-700',
+  secondary: 'border border-slate-200 !bg-white !text-slate-800 hover:border-emerald-200 hover:!bg-emerald-50 hover:!text-emerald-900 focus-visible:ring-emerald-700 dark:border-slate-700 dark:!bg-slate-800 dark:!text-slate-100 dark:hover:border-emerald-700 dark:hover:!bg-slate-700',
+  inverse: '!bg-white !text-emerald-950 font-bold shadow-xl shadow-emerald-950/20 hover:!bg-emerald-50 hover:!text-emerald-900 focus-visible:ring-white',
 }
 
 const ActionLink = ({ to, href, variant = 'primary', children, className = '', ...props }) => {

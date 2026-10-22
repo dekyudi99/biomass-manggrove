@@ -3,6 +3,7 @@ import { message } from 'antd'
 import { useLanguage } from '../context/LanguageContext'
 import { parseGeoJsonAoi, parseCsvAoi, parseShapefileAoi } from '../utils/aoiParser'
 import Logo from '../assets/logo.png'
+import { Link } from 'react-router-dom'
 
 const Sidebar = ({
   mode,
@@ -161,12 +162,12 @@ const Sidebar = ({
         <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm sm:max-w-md max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/80 p-3 sm:p-4 transition-all duration-300 flex flex-col gap-3 sm:gap-4 text-gray-800">
           {/* Header Panel */}
           <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 sm:pb-3 gap-2">
-            <div className="min-w-0 flex-1">
+            <Link to="/" className="min-w-0 flex-1">
               <h2 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-1.5 truncate">
                 <span><img src={Logo} alt="Grovia Logo" className="brand-logo-image w-6 h-6 object-contain" /></span> <span className="truncate text-2xl">Grovia Panel</span>
               </h2>
               <p className="text-[11px] sm:text-xs text-gray-500 truncate">{t('appSubtitle')}</p>
-            </div>
+            </Link>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider hidden sm:inline-block">
                 {t('geeReady')}

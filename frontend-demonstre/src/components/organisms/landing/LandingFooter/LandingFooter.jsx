@@ -7,7 +7,20 @@ const LandingFooter = ({ copy }) => (
         <BrandLogo imageClassName="h-8 w-8" />
         <p className="max-w-md text-xs leading-5 text-slate-500 dark:text-slate-300">{copy.footerDescription}</p>
       </div>
-      <p className="text-xs text-slate-400">© {new Date().getFullYear()} Grovia · {copy.footerNote}</p>
+      <div className="flex flex-col gap-1 text-xs text-slate-400 md:text-right">
+        <p>© {new Date().getFullYear()} Grovia · {copy.footerNote}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Part of a Collaboration with{" "}
+          <a
+            href="https://wefgis.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          >
+            WEF GIS Project
+          </a>
+        </p>
+      </div>
     </div>
   </footer>
 )
