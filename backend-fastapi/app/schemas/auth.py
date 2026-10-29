@@ -93,10 +93,12 @@ class UserResponse(BaseModel):
 
     id: str
     name: str
-    email: EmailStr
+    email: str
     is_verified: bool
+    keycloak_sub: str | None = None
+    roles: list[str] = Field(default_factory=list)
 
 
 class LoginResponse(BaseModel):
     expires_in: int
-    user: UserResponse
+    user: UserResponse

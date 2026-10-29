@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _required_secret(name: str) -> str:
@@ -54,3 +54,22 @@ SMTP_USE_TLS = (
     if SMTP_USE_SSL or SMTP_PORT == 465
     else os.getenv("SMTP_USE_TLS", "true").strip().lower() == "true"
 )
+
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://localhost:8081").rstrip("/")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "wefgis").strip()
+KEYCLOAK_INTERNAL_URL = os.getenv("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080").rstrip("/")
+
+KEYCLOAK_ISSUER = os.getenv("KEYCLOAK_ISSUER", f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}").strip()
+KEYCLOAK_JWKS_URL = os.getenv(
+    "KEYCLOAK_JWKS_URL", f"{KEYCLOAK_INTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"
+).strip()
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "grovia").strip()
+KEYCLOAK_REQUIRED_ROLE = os.getenv("KEYCLOAK_REQUIRED_ROLE", "app-grovia").strip()
+KEYCLOAK_VALID_ROLES = [
+    r.strip()
+    for r in os.getenv("KEYCLOAK_VALID_ROLES", "user,admin,app-grovia").split(",")
+    if r.strip()
+]
+AUTH_LOCAL_ENABLED = os.getenv("AUTH_LOCAL_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+LEGACY_AUTH_ENABLED = os.getenv("LEGACY_AUTH_ENABLED", str(AUTH_LOCAL_ENABLED)).strip().lower() in ("true", "1", "yes")
+PORTAL_URL = os.getenv("PORTAL_URL", "http://localhost:5170").strip()

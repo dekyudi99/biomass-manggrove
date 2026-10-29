@@ -8,10 +8,13 @@ import {
   SettingOutlined,
   GlobalOutlined,
   CloseOutlined,
+  UserOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import layerApi from '../../api/LayerApi'
 import { useLanguage } from '../../context/LanguageContext'
+import useAuth from '../../hooks/useAuth'
 
 import LayersTab from './tabs/LayersTab'
 import GroupsTab from './tabs/GroupsTab'
@@ -103,6 +106,38 @@ const SpatialSidebar = ({
     },
   ]
 
+  const { user, logout, portalUrl } = useAuth()
+
+  const getInitials = (name) => {
+    if (!name) return 'U'
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  const userMenuItems = [
+    {
+      key: 'account',
+      icon: <UserOutlined />,
+      label: 'Account',
+      onClick: () => {
+        window.location.href = `${portalUrl || 'http://localhost:5170'}/profile`
+      },
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      danger: true,
+      label: 'Sign out',
+      onClick: () => {
+        logout()
+      },
+    },
+  ]
+
   const handleOpenStyleModal = (layer) => {
     setSelectedLayerForStyle(layer)
     setIsStyleModalOpen(true)
@@ -141,6 +176,30 @@ const SpatialSidebar = ({
           >
             <SettingOutlined className="text-sm sm:text-base" />
           </button>
+
+          {user && (
+            <Dropdown
+              menu={{
+                items: userMenuItems,
+              }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <button
+                type="button"
+                className="bg-white/95 backdrop-blur-md h-8 sm:h-9 px-2 sm:px-2.5 rounded-xl shadow-lg border border-gray-200/80 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                title={user.name || user.email}
+                aria-label="User Profile"
+              >
+                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-600 text-white font-bold text-[10px] sm:text-[11px] flex items-center justify-center">
+                  {getInitials(user.name || user.email)}
+                </span>
+                <span className="hidden md:inline text-xs font-semibold max-w-[100px] truncate text-slate-700">
+                  {user.name || user.email}
+                </span>
+              </button>
+            </Dropdown>
+          )}
 
           <button
             type="button"

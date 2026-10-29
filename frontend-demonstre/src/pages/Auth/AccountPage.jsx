@@ -13,7 +13,14 @@ const AccountPage = () => {
   const { language, setLanguage } = useLanguage()
   const copy = getAuthCopy(language)
   const { message } = App.useApp()
-  const { logout } = useAuth()
+  const { logout, portalUrl } = useAuth()
+  const isAuthLocalEnabled = import.meta.env.VITE_AUTH_LOCAL_ENABLED === 'true'
+
+  if (!isAuthLocalEnabled) {
+    window.location.href = `${portalUrl || 'http://localhost:5170'}/profile`
+    return null
+  }
+
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 

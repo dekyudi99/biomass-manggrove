@@ -16,9 +16,12 @@ class User(Base):
     __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    keycloak_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # DEPRECATED: password_hash, is_verified, and token_version are legacy fields kept non-destructively.
+    # Authentication, email verification, and authorization roles are now centrally managed by Keycloak SSO.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

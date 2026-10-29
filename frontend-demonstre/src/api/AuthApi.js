@@ -1,11 +1,13 @@
 import axios from 'axios'
 import { attachCsrfProtection } from '../services/authSessionService'
+import { applyOidcInterceptor } from '../services/oidcTokenService'
 import { getAuthApiBaseUrl } from '../utils/apiUrl'
 
-const authClient = attachCsrfProtection(axios.create({
+const authClient = applyOidcInterceptor(attachCsrfProtection(axios.create({
   baseURL: getAuthApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
   timeout: 20000,
-}))
+  withCredentials: true,
+})))
 
 const authApi = {
   register: (payload) => authClient.post('/register', payload),

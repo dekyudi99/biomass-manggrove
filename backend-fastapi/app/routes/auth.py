@@ -2,7 +2,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -10,6 +10,7 @@ from app.config.settings import (
     AUTH_COOKIE_SAMESITE,
     AUTH_COOKIE_SECURE,
     AUTH_CSRF_COOKIE_NAME,
+    AUTH_LOCAL_ENABLED,
     AUTH_SESSION_COOKIE_NAME,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
 )
@@ -38,6 +39,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 SESSION_COOKIE_PATH = "/api"
 CSRF_COOKIE_PATH = "/api"
 CSRF_TOKEN_LIFETIME = timedelta(hours=12)
+
+
+def require_local_auth() -> None:
+    """Memastikan autentikasi lokal hanya bisa diakses bila flag AUTH_LOCAL_ENABLED aktif."""
+    if not AUTH_LOCAL_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Autentikasi lokal dinonaktifkan. Silakan gunakan Single Sign-On (Keycloak SSO).",
+        )
 
 
 def _expire_legacy_auth_cookies(response: Response) -> None:
@@ -113,6 +123,7 @@ def register(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     service = AuthService(db)
     user, code = service.register(payload)
     try:
@@ -129,6 +140,7 @@ def verify_email(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     AuthService(db).verify_email(payload)
     return {"success": True, "code": "AUTH_EMAIL_VERIFIED"}
 
@@ -139,6 +151,7 @@ def resend_verification(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     service = AuthService(db)
     user, code = service.resend_verification(str(payload.email))
     if user and code:
@@ -157,6 +170,7 @@ def login(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     service = AuthService(db)
     session = service.login(payload)
     if session.get("verification_required"):
@@ -198,8 +212,16 @@ def get_csrf_token(response: Response):
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+def get_me(request: Request, current_user: User = Depends(get_current_user)):
+    roles = getattr(request.state, "roles", [])
+    return UserResponse(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        is_verified=current_user.is_verified,
+        keycloak_sub=current_user.keycloak_sub,
+        roles=roles,
+    )
 
 
 @router.post("/change-password")
@@ -210,6 +232,7 @@ def change_password(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     AuthService(db).change_password(current_user, payload)
     _clear_session_cookie(response)
     return {"success": True, "code": "AUTH_PASSWORD_CHANGED"}
@@ -222,6 +245,7 @@ def request_password_reset_otp(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     service = AuthService(db)
     user, code = service.request_password_reset_otp(payload)
     if user and code:
@@ -236,6 +260,7 @@ def reset_password(
     db: Session = Depends(get_db),
     _: None = Depends(require_csrf),
 ):
+    require_local_auth()
     AuthService(db).reset_password(payload)
     _clear_session_cookie(response)
     return {"success": True, "code": "AUTH_PASSWORD_RESET"}

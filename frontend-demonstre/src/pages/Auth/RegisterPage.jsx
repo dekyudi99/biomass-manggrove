@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { App } from 'antd'
 import AuthTemplate from '../../components/templates/AuthTemplate/AuthTemplate'
 import AuthTextField from '../../components/atoms/auth/AuthTextField'
@@ -14,9 +14,15 @@ const RegisterPage = () => {
   const { language, setLanguage } = useLanguage()
   const copy = getAuthCopy(language)
   const { message } = App.useApp()
-  const navigate = useNavigate()
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isAuthLocalEnabled =
+    import.meta.env.VITE_AUTH_LOCAL_ENABLED === 'true' ||
+    (import.meta.env.VITE_LEGACY_LOGIN_ENABLED !== 'false' && import.meta.env.VITE_AUTH_LOCAL_ENABLED !== 'false')
+
+  if (!isAuthLocalEnabled) {
+    return <Navigate to="/login" replace />
+  }
 
   const validateRegistration = (values) => {
     const name = values.name.trim().replace(/\s+/g, ' ')

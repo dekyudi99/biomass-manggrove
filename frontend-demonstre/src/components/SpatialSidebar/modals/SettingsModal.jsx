@@ -1,14 +1,35 @@
 import { useState } from 'react'
 import { Modal, Select, Button, message } from 'antd'
-import { CheckCircleOutlined, CloseCircleOutlined, LockOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  LockOutlined,
+  ReloadOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons'
 import axiosClient from '../../../api/AxiosClient'
 import { useLanguage } from '../../../context/LanguageContext'
 import ThemeToggle from '../../atoms/ThemeToggle/ThemeToggle'
 import { getAuthCopy } from '../../../utils/authI18n'
+import useAuth from '../../../hooks/useAuth'
 
 const SettingsModal = ({ open, onClose, onOpenChangePassword }) => {
   const { language, setLanguage, t } = useLanguage()
   const authCopy = getAuthCopy(language)
+  const { logout } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      if (onClose) onClose()
+      await logout()
+    } catch (err) {
+      console.warn('Logout error:', err)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   const [isChecking, setIsChecking] = useState(false)
   const [backendStatus, setBackendStatus] = useState(null)
@@ -132,20 +153,23 @@ const SettingsModal = ({ open, onClose, onOpenChangePassword }) => {
 
         {/* Footer */}
         <div className="pt-2 flex justify-between items-center border-t border-gray-100 dark:border-slate-700">
+          {import.meta.env.VITE_AUTH_LOCAL_ENABLED === 'true' ? (
+            <Button
+              icon={<LockOutlined />}
+              onClick={onOpenChangePassword}
+              className="min-h-9 rounded-lg border-emerald-700 bg-emerald-700 px-3 text-sm font-semibold text-white shadow-sm hover:border-emerald-800 hover:bg-emerald-800 hover:text-white"
+            >
+              {authCopy.changePassword}
+            </Button>
+          ) : <div />}
           <Button
-            icon={<LockOutlined />}
-            onClick={onOpenChangePassword}
-            className="min-h-9 rounded-lg border-emerald-700 bg-emerald-700 px-3 text-sm font-semibold text-white shadow-sm hover:border-emerald-800 hover:bg-emerald-800 hover:text-white"
+            danger
+            icon={<LogoutOutlined />}
+            loading={isLoggingOut}
+            onClick={handleLogout}
+            className="min-h-9 rounded-lg px-3 text-sm font-semibold shadow-sm"
           >
-            {authCopy.changePassword}
-          </Button>
-          <Button
-            size="small"
-            type="primary"
-            onClick={onClose}
-            className="bg-emerald-600 hover:bg-emerald-700 border-none text-xs"
-          >
-            {t('close')}
+            {authCopy.logout}
           </Button>
         </div>
       </div>
