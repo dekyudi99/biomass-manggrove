@@ -28,14 +28,10 @@ default_origins = [
     "http://127.0.0.1:5173",
     "https://grovia.wefgis.com"
 ]
-env_cors = os.getenv("CORS_ORIGINS")
-origins = [orig.strip() for orig in env_cors.split(",") if orig.strip()] if env_cors else default_origins
-if not origins or "*" in origins:
-    raise RuntimeError("CORS_ORIGINS must contain explicit origins when credentialed cookies are enabled.")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=default_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
