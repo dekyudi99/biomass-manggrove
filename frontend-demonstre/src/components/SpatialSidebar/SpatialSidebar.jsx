@@ -121,7 +121,7 @@ const SpatialSidebar = ({
       icon: <UserOutlined />,
       label: 'Account',
       onClick: () => {
-        window.location.href = `${portalUrl || 'http://localhost:5170'}/profile`
+        window.location.href = `${portalUrl}/profile`
       },
     },
     {

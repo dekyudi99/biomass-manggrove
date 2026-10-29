@@ -1,17 +1,16 @@
 import { WebStorageStateStore } from 'oidc-client-ts'
 
-const keycloakUrl = (import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8081').replace(/\/+$/, '')
-const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM || 'wefgis'
-const defaultAuthority = `${keycloakUrl}/realms/${keycloakRealm}`
+const authority =
+  import.meta.env.VITE_KEYCLOAK_AUTHORITY ||
+  `${(import.meta.env.VITE_KEYCLOAK_URL || '').replace(/\/+$/, '')}/realms/${import.meta.env.VITE_KEYCLOAK_REALM || ''}`
 
 export const oidcConfig = {
-  authority: import.meta.env.VITE_KEYCLOAK_AUTHORITY || defaultAuthority,
-  client_id: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'grovia',
-  redirect_uri: import.meta.env.VITE_KEYCLOAK_REDIRECT_URI || `${window.location.origin}/auth/callback`,
+  authority,
+  client_id: import.meta.env.VITE_KEYCLOAK_CLIENT_ID,
+  redirect_uri: import.meta.env.VITE_KEYCLOAK_REDIRECT_URI,
   post_logout_redirect_uri:
     import.meta.env.VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI ||
-    import.meta.env.VITE_PORTAL_URL ||
-    'http://localhost:5170',
+    import.meta.env.VITE_PORTAL_URL,
   response_type: 'code',
   scope: 'openid profile email',
   automaticSilentRenew: true,

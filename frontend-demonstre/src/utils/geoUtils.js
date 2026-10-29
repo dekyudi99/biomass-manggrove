@@ -92,7 +92,7 @@ export async function bboxToWGS84(rawBbox, epsg) {
   // Jika belum ada di cache proj4, ambil definisinya dari epsg.io
   if (!epsgCache[cleanEpsg]) {
     try {
-      const epsgBase = (import.meta.env.VITE_EPSG_IO_URL || 'https://epsg.io').replace(/\/+$/, '')
+      const epsgBase = (import.meta.env.VITE_EPSG_IO_URL || '').replace(/\/+$/, '')
       const res = await fetch(`${epsgBase}/${cleanEpsg}.proj4`)
       if (!res.ok) throw new Error(`EPSG:${cleanEpsg} not found on ${epsgBase}`)
       const def = await res.text()

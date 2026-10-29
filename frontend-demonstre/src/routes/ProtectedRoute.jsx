@@ -38,7 +38,7 @@ const ProtectedRoute = () => {
               size="large"
               className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
               onClick={() => {
-                window.location.href = portalUrl || 'http://localhost:5170'
+                window.location.href = portalUrl
               }}
             >
               Kembali ke Portal SSO

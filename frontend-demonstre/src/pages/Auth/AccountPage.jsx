@@ -17,7 +17,7 @@ const AccountPage = () => {
   const isAuthLocalEnabled = import.meta.env.VITE_AUTH_LOCAL_ENABLED === 'true'
 
   if (!isAuthLocalEnabled) {
-    window.location.href = `${portalUrl || 'http://localhost:5170'}/profile`
+    window.location.href = `${portalUrl}/profile`
     return null
   }
 

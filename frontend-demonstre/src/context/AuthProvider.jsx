@@ -17,7 +17,7 @@ const AuthProvider = ({ children }) => {
   const [isLegacyLoading, setIsLegacyLoading] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
 
-  const portalUrl = import.meta.env.VITE_PORTAL_URL || 'http://localhost:5170'
+  const portalUrl = import.meta.env.VITE_PORTAL_URL
   const postLogoutRedirect =
     import.meta.env.VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI || portalUrl
 
