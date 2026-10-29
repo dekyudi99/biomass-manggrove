@@ -13,7 +13,7 @@ def _required_secret(name: str) -> str:
     return value
 
 
-DB_HOST = os.getenv("DB_HOST", "db-central-postgres").strip()
+DB_HOST = os.getenv("DB_HOST").strip()
 DB_PORT = os.getenv("DB_PORT", "5432").strip()
 DB_NAME = os.getenv("DB_NAME", "mangrove").strip()
 DB_USER = os.getenv("DB_USER", "mangrove_app").strip()
@@ -72,4 +72,4 @@ KEYCLOAK_VALID_ROLES = [
 ]
 AUTH_LOCAL_ENABLED = os.getenv("AUTH_LOCAL_ENABLED", "false").strip().lower() in ("true", "1", "yes")
 LEGACY_AUTH_ENABLED = os.getenv("LEGACY_AUTH_ENABLED", str(AUTH_LOCAL_ENABLED)).strip().lower() in ("true", "1", "yes")
-PORTAL_URL = os.getenv("PORTAL_URL", "http://localhost:5170").strip()
+PORTAL_URL = os.getenv("PORTAL_URL", "http://localhost:5170").strip()
