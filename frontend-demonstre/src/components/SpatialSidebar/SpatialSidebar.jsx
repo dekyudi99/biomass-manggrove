@@ -177,7 +177,7 @@ const SpatialSidebar = ({
             <SettingOutlined className="text-sm sm:text-base" />
           </button>
 
-          {user && (
+          {user ? (
             <Dropdown
               menu={{
                 items: userMenuItems,
@@ -199,6 +199,16 @@ const SpatialSidebar = ({
                 </span>
               </button>
             </Dropdown>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="bg-white/95 backdrop-blur-md hover:bg-emerald-50 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl shadow-lg border border-emerald-300 text-emerald-700 font-semibold text-xs sm:text-sm transition cursor-pointer flex items-center gap-1.5 shrink-0"
+              title={t('signIn') || 'Masuk'}
+            >
+              <UserOutlined className="text-xs sm:text-sm" />
+              <span>{t('signIn') || 'Masuk'}</span>
+            </button>
           )}
 
           <button

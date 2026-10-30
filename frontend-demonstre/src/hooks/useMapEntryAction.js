@@ -8,8 +8,8 @@ const useMapEntryAction = (authenticatedLabel) => {
   const authCopy = getAuthCopy(language)
 
   return {
-    to: isAuthenticated && !isLoading ? '/dashboard' : '/login',
-    label: isLoading ? authCopy.loadingSession : isAuthenticated ? authenticatedLabel : authCopy.signIn,
+    to: '/dashboard',
+    label: isLoading ? authCopy.loadingSession : (authenticatedLabel || authCopy.openDashboard || 'Dashboard'),
     isLoading,
   }
 }

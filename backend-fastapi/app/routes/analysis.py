@@ -5,8 +5,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from typing import Optional
 from app.config.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_optional_current_user
 from app.dependencies.csrf import require_csrf
 from app.models.auth import User
 from app.schemas.analysis import (
@@ -57,7 +58,7 @@ def list_analysis_jobs(
 
 
 @router.get("/model")
-def get_model_status(current_user: User = Depends(get_current_user)):
+def get_model_status(current_user: Optional[User] = Depends(get_optional_current_user)):
     model = get_active_model_config()
     return {
         "model_version": model.version,

@@ -7,7 +7,7 @@ import SliderControl from '../atoms/SliderControl'
 import VectorLivePreviewCard from '../molecules/VectorLivePreviewCard'
 
 export const VECTOR_PRESET_PALETTES = [
-  { name: 'Teal AstraGIS', fill: '#0d9488', stroke: '#0f766e', label: 'Teal' },
+  { name: 'Teal Spatial', fill: '#0d9488', stroke: '#0f766e', label: 'Teal' },
   { name: 'Ocean Blue', fill: '#0284c7', stroke: '#0369a1', label: 'Blue' },
   { name: 'Crimson Alert', fill: '#e11d48', stroke: '#be123c', label: 'Red' },
   { name: 'Sunset Amber', fill: '#d97706', stroke: '#b45309', label: 'Amber' },

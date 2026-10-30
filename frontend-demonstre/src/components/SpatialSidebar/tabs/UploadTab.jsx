@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Input, Button, Progress, message } from 'antd'
-import { UploadOutlined, InboxOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { UploadOutlined, InboxOutlined, CheckCircleOutlined, InfoCircleOutlined, LockOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import layerApi from '../../../api/LayerApi'
 import { useLanguage } from '../../../context/LanguageContext'
+import useAuth from '../../../hooks/useAuth'
 import { QUERY_KEYS } from '../../../constants/queryKeys'
 
 const ACCEPTED_EXTENSIONS = ['.tif', '.tiff', '.geojson', '.json', '.zip', '.shp', '.gpkg', '.csv']
@@ -34,6 +36,8 @@ const getFormatInfo = (filename) => {
 
 const UploadTab = ({ onUploadSuccess }) => {
   const { t } = useLanguage()
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [file, setFile] = useState(null)
@@ -41,6 +45,26 @@ const UploadTab = ({ onUploadSuccess }) => {
   const [description, setDescription] = useState('')
   const [progress, setProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex-1 p-6 flex flex-col items-center justify-center text-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+          <LockOutlined />
+        </div>
+        <p className="text-xs text-gray-600 max-w-xs leading-relaxed">
+          {t('loginRequiredToSave') || 'Silakan masuk terlebih dahulu untuk mengunggah layer spasial.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/login')}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer"
+        >
+          {t('signIn') || 'Masuk'}
+        </button>
+      </div>
+    )
+  }
 
   const handleFileDrop = (e) => {
     e.preventDefault()

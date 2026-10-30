@@ -22,10 +22,10 @@ const router = createBrowserRouter([
             { path: "/register", element: <RegisterPage /> },
             { path: "/verify-email", element: <VerifyEmailPage /> },
             { path: "/forgot-password", element: <ForgotPasswordPage /> },
+            { path: "/dashboard", element: <Dashboard /> },
             {
                 element: <ProtectedRoute />,
                 children: [
-                    { path: "/dashboard", element: <Dashboard /> },
                     { path: "/account", element: <AccountPage /> },
                 ],
             },

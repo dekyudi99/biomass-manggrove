@@ -25,9 +25,12 @@ import {
   CalendarOutlined,
   DownloadOutlined,
   TableOutlined,
+  LockOutlined,
 } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { useLanguage } from '../context/LanguageContext'
+import useAuth from '../hooks/useAuth'
 import geeApi from '../api/GeeApi'
 
 const { RangePicker } = DatePicker
@@ -125,6 +128,8 @@ const GeeAnalysisModal = ({
   onToggleAoiFill,
 }) => {
   const { t } = useLanguage()
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
 
   // State Pilihan Indeks
   const [selectedSection, setSelectedSection] = useState(initialSection || 'vegetation')
@@ -237,14 +242,16 @@ const GeeAnalysisModal = ({
     geeApi.getModelStatus().then((model) => {
       if (isCurrent) setModelInfo(model)
     }).catch((error) => console.error('Failed to load AGB model status:', error))
-    geeApi.listAnalysisJobs().then((jobs) => {
-      if (isCurrent) setAnalysisJobHistory(jobs)
-    }).catch((error) => console.error('Failed to load AGB job history:', error))
-    geeApi.listAnalysisNotifications().then((items) => {
-      if (isCurrent) setAnalysisNotifications(items)
-    }).catch((error) => console.error('Failed to load AGB notifications:', error))
+    if (isAuthenticated) {
+      geeApi.listAnalysisJobs().then((jobs) => {
+        if (isCurrent) setAnalysisJobHistory(jobs)
+      }).catch((error) => console.error('Failed to load AGB job history:', error))
+      geeApi.listAnalysisNotifications().then((items) => {
+        if (isCurrent) setAnalysisNotifications(items)
+      }).catch((error) => console.error('Failed to load AGB notifications:', error))
+    }
     return () => { isCurrent = false }
-  }, [isOpen])
+  }, [isOpen, isAuthenticated])
 
   useEffect(() => {
     if (!analysisJob || !['queued', 'running'].includes(analysisJob.status)) return undefined
@@ -329,6 +336,11 @@ const GeeAnalysisModal = ({
       }
 
       if (selectedIndex === 'agb') {
+        if (!isAuthenticated) {
+          message.warning(t('loginRequiredForAgb') || 'Analisis Biomassa Mangrove (AGB) memerlukan login karena hasil perlu disimpan dan notifikasi akan dikirimkan melalui email.')
+          navigate('/login')
+          return
+        }
         const coordinates = areaPoints.map((point) => [point[1], point[0]])
         const firstCoordinate = coordinates[0]
         const lastCoordinate = coordinates[coordinates.length - 1]
@@ -386,8 +398,14 @@ const GeeAnalysisModal = ({
     }
   }
 
-  // Handle Simpan ke AstraGIS
+  // Handle Simpan ke Spatial
   const handleSaveToAstraGis = async () => {
+    if (!isAuthenticated) {
+      message.warning(t('loginRequiredToSave') || 'Silakan masuk terlebih dahulu untuk menyimpan data.')
+      navigate('/login')
+      return
+    }
+
     if (!layerName.trim()) {
       message.warning('Harap isi nama layer.')
       return
@@ -419,7 +437,7 @@ const GeeAnalysisModal = ({
     } catch (err) {
       console.error('Save to AstraGIS error:', err)
       message.error(
-        err.response?.data?.detail || 'Gagal menyimpan layer ke AstraGIS.'
+        err.response?.data?.detail || 'Gagal menyimpan layer.'
       )
     } finally {
       setIsSavingAstraGis(false)
@@ -752,42 +770,62 @@ const GeeAnalysisModal = ({
 
           return (
             <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleRunAnalysis}
-                disabled={isRunDisabled}
-                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
-                  isUnderDev
-                    ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-90 shadow-none'
-                    : !hasValidAoi
-                    ? 'bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed opacity-80 shadow-none'
-                    : isAgb
-                    ? 'bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-700 hover:via-indigo-700 hover:to-purple-800 active:from-violet-900 active:to-purple-900 shadow-indigo-300/50 shadow-md text-white cursor-pointer ring-2 ring-indigo-400/30'
-                    : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white cursor-pointer'
-                }`}
-              >
-                {isUnderDev ? (
-                  <>
-                    <span>🚧</span>
-                    <span>{t('btnUnderDevelopment')}</span>
-                  </>
-                ) : isAnalyzing ? (
-                  <>
-                    <Spin size="small" />
-                    <span>{isAgb ? t('runningAgbAnalysis') : t('runningAnalysis')}</span>
-                  </>
-                ) : isAgb ? (
-                  <>
-                    <span className="text-sm">🤖</span>
-                    <span>{t('runAgbModelBtn')}</span>
-                  </>
-                ) : (
-                  <>
-                    <ThunderboltOutlined className="text-sm font-extrabold" />
-                    <span>{t('runAnalysisBtn')}</span>
-                  </>
-                )}
-              </button>
+              {isAgb && !isAuthenticated && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-[11px] text-amber-900 flex items-start gap-2 shadow-xs">
+                  <span className="text-base leading-none">🔐</span>
+                  <div className="flex-1 leading-relaxed">
+                    <strong>{t('loginRequiredForAgb')}</strong>
+                  </div>
+                </div>
+              )}
+
+              {isAgb && !isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-700 hover:via-indigo-700 text-white cursor-pointer flex items-center justify-center gap-2 ring-2 ring-indigo-400/30"
+                >
+                  <LockOutlined className="text-sm" />
+                  <span>{t('signInToRunAgb')}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRunAnalysis}
+                  disabled={isRunDisabled}
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
+                    isUnderDev
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-90 shadow-none'
+                      : !hasValidAoi
+                      ? 'bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed opacity-80 shadow-none'
+                      : isAgb
+                      ? 'bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 hover:from-violet-700 hover:via-indigo-700 hover:to-purple-800 active:from-violet-900 active:to-purple-900 shadow-indigo-300/50 shadow-md text-white cursor-pointer ring-2 ring-indigo-400/30'
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white cursor-pointer'
+                  }`}
+                >
+                  {isUnderDev ? (
+                    <>
+                      <span>🚧</span>
+                      <span>{t('btnUnderDevelopment')}</span>
+                    </>
+                  ) : isAnalyzing ? (
+                    <>
+                      <Spin size="small" />
+                      <span>{isAgb ? t('runningAgbAnalysis') : t('runningAnalysis')}</span>
+                    </>
+                  ) : isAgb ? (
+                    <>
+                      <span className="text-sm">🤖</span>
+                      <span>{t('runAgbModelBtn')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ThunderboltOutlined className="text-sm font-extrabold" />
+                      <span>{t('runAnalysisBtn')}</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               {!hasValidAoi && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2 text-center text-[11px] text-amber-900 flex items-center justify-center gap-1.5 font-medium">
@@ -1265,60 +1303,78 @@ const GeeAnalysisModal = ({
               </div>
             )}
 
-            {/* FORM SIMPAN KE ASTRAGIS */}
+            {/* FORM SIMPAN KE SPATIAL */}
             <div className="bg-white p-3.5 rounded-xl border border-gray-200 flex flex-col gap-2.5 mt-1">
               <h5 className="font-bold text-xs text-gray-800 flex items-center gap-1.5">
                 <SaveOutlined className="text-blue-600" />
                 {t('saveToAstraGis')}
               </h5>
 
-              <div className="grid grid-cols-1 gap-2">
-                {/* Nama Layer */}
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 block mb-1">
-                    Nama Layer GeoTIFF *
-                  </label>
-                  <Input
-                    className="text-xs"
-                    value={layerName}
-                    onChange={(e) => setLayerName(e.target.value)}
-                    placeholder={t('layerNamePlaceholder')}
-                  />
+              {!isAuthenticated ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <LockOutlined className="text-amber-600 text-sm shrink-0" />
+                    <span className="leading-snug">{t('loginRequiredToSave')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs transition cursor-pointer shrink-0"
+                  >
+                    {t('signIn') || 'Masuk'}
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-2">
+                    {/* Nama Layer */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-1">
+                        Nama Layer GeoTIFF *
+                      </label>
+                      <Input
+                        className="text-xs"
+                        value={layerName}
+                        onChange={(e) => setLayerName(e.target.value)}
+                        placeholder={t('layerNamePlaceholder')}
+                      />
+                    </div>
+                  </div>
 
-              {/* Deskripsi */}
-              <div>
-                <label className="text-[11px] font-semibold text-gray-600 block mb-1">
-                  Deskripsi Layer
-                </label>
-                <Input.TextArea
-                  rows={2}
-                  className="text-xs"
-                  value={layerDescription}
-                  onChange={(e) => setLayerDescription(e.target.value)}
-                  placeholder="Keterangan hasil analisis GEE..."
-                />
-              </div>
+                  {/* Deskripsi */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-600 block mb-1">
+                      Deskripsi Layer
+                    </label>
+                    <Input.TextArea
+                      rows={2}
+                      className="text-xs"
+                      value={layerDescription}
+                      onChange={(e) => setLayerDescription(e.target.value)}
+                      placeholder="Keterangan hasil analisis GEE..."
+                    />
+                  </div>
 
-              {/* Tombol Simpan */}
-              <button
-                onClick={handleSaveToAstraGis}
-                disabled={isSavingAstraGis}
-                className="w-full mt-1 py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isSavingAstraGis ? (
-                  <>
-                    <Spin size="small" />
-                    <span>{t('savingToAstraGis')}</span>
-                  </>
-                ) : (
-                  <>
-                    <CloudUploadOutlined className="text-sm font-bold" />
-                    <span>{t('saveToAstraGis')}</span>
-                  </>
-                )}
-              </button>
+                  {/* Tombol Simpan */}
+                  <button
+                    onClick={handleSaveToAstraGis}
+                    disabled={isSavingAstraGis}
+                    className="w-full mt-1 py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSavingAstraGis ? (
+                      <>
+                        <Spin size="small" />
+                        <span>{t('savingToAstraGis')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <CloudUploadOutlined className="text-sm font-bold" />
+                        <span>{t('saveToAstraGis')}</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
