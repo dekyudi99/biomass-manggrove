@@ -348,37 +348,40 @@ const Dashboard = () => {
         onSelectLayer={setActiveLayer}
       />
 
-      <GeePreviewIndicator
-        previewLayer={geePreviewLayer}
-        isAoiVisible={isAoiVisible}
-        onToggleAoi={() => setIsAoiVisible((previousValue) => !previousValue)}
-        onOpenResults={() => {
-          if (geePreviewLayer?.isDataset) {
-            setIsDatasetExtractorOpen(true)
-          } else {
-            setIsGeeModalOpen(true)
-          }
-        }}
-        onClearPreview={() => setGeePreviewLayer(null)}
-        t={t}
-        isLeftOpen={isLeftOpen}
-        isRightOpen={isRightOpen}
-      />
-
-      <div className={`pointer-events-none absolute bottom-8 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end gap-2 overflow-y-auto transition-all duration-300 ease-in-out ${
-        isRightOpen ? 'right-3 sm:right-[29.5rem]' : 'right-16 sm:right-20'
+      {/* Floating Panel Kontrol Bawah: Preview Indicator & Kartu Legenda */}
+      <div className={`pointer-events-none absolute bottom-8 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end sm:flex-row sm:items-end gap-2.5 transition-all duration-300 ease-in-out ${
+        isRightOpen ? 'right-3 sm:right-[26rem]' : 'right-16 sm:right-20'
       }`}>
-        <GeeAnalysisLegend
+        {/* Tombol / Badge Preview GEE (berada di sebelah KIRI legenda di desktop) */}
+        <GeePreviewIndicator
           previewLayer={geePreviewLayer}
-          isMinimized={isLegendMinimized}
-          onToggleMinimized={() => setIsLegendMinimized((prev) => !prev)}
-        />
-        <WmsLayerLegend
-          visibleLayers={visibleLayers}
+          isAoiVisible={isAoiVisible}
+          onToggleAoi={() => setIsAoiVisible((previousValue) => !previousValue)}
+          onOpenResults={() => {
+            if (geePreviewLayer?.isDataset) {
+              setIsDatasetExtractorOpen(true)
+            } else {
+              setIsGeeModalOpen(true)
+            }
+          }}
+          onClearPreview={() => setGeePreviewLayer(null)}
           t={t}
-          isMinimized={isWmsLegendMinimized}
-          onToggleMinimized={() => setIsWmsLegendMinimized((prev) => !prev)}
         />
+
+        {/* Kartu Legenda (GeeAnalysisLegend & WmsLayerLegend) */}
+        <div className="flex flex-col-reverse items-end gap-2 overflow-y-auto max-h-[calc(100dvh-5rem)]">
+          <GeeAnalysisLegend
+            previewLayer={geePreviewLayer}
+            isMinimized={isLegendMinimized}
+            onToggleMinimized={() => setIsLegendMinimized((prev) => !prev)}
+          />
+          <WmsLayerLegend
+            visibleLayers={visibleLayers}
+            t={t}
+            isMinimized={isWmsLegendMinimized}
+            onToggleMinimized={() => setIsWmsLegendMinimized((prev) => !prev)}
+          />
+        </div>
       </div>
 
       {/* Modal Analisis Komputasi Citra Satelit GEE / Model AGB */}
