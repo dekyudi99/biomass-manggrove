@@ -3,7 +3,7 @@ import L from 'leaflet'
 import { BASE_LAYERS } from '../constants/layers'
 import { useLanguage } from '../context/LanguageContext'
 
-const LayerBaseControl = ({ activeLayer, onSelectLayer, isSidebarOpen = false }) => {
+const LayerBaseControl = ({ activeLayer, onSelectLayer }) => {
   const { t } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef(null)
@@ -83,9 +83,7 @@ const LayerBaseControl = ({ activeLayer, onSelectLayer, isSidebarOpen = false })
   return (
     <div
       ref={containerRef}
-      className={`absolute bottom-8 left-3 sm:bottom-6 z-[950] flex items-end gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)] transition-all duration-300 ease-in-out ${
-        isSidebarOpen ? 'sm:left-[25.5rem]' : 'sm:left-6'
-      }`}
+      className="absolute bottom-8 left-3 sm:bottom-6 sm:left-6 z-[950] flex items-end gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)]"
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >

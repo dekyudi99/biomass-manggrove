@@ -346,7 +346,6 @@ const Dashboard = () => {
       <LayerBaseControl
         activeLayer={activeLayer}
         onSelectLayer={setActiveLayer}
-        isSidebarOpen={isLeftOpen}
       />
 
       <GeePreviewIndicator
