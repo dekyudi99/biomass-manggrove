@@ -1,18 +1,26 @@
 import axios from 'axios'
 import { attachCsrfProtection } from '../services/authSessionService'
+import { applyOidcInterceptor } from '../services/oidcTokenService'
 import { getAuthApiBaseUrl, getGeeApiBaseUrl } from '../utils/apiUrl'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 const analysisBaseUrl = `${getGeeApiBaseUrl(apiBaseUrl).replace(/\/gee$/, '')}/analysis`
-const geeClient = attachCsrfProtection(axios.create({
-  baseURL: getGeeApiBaseUrl(apiBaseUrl),
-  timeout: 180000, // 3 menit untuk proses komputasi citra satelit
-}), { csrfBaseUrl: getAuthApiBaseUrl(apiBaseUrl) })
 
-const analysisClient = attachCsrfProtection(axios.create({
-  baseURL: analysisBaseUrl,
-  timeout: 20000,
-}), { csrfBaseUrl: getAuthApiBaseUrl(apiBaseUrl) })
+const geeClient = applyOidcInterceptor(
+  attachCsrfProtection(axios.create({
+    baseURL: getGeeApiBaseUrl(apiBaseUrl),
+    timeout: 180000, // 3 menit untuk proses komputasi citra satelit
+    withCredentials: true,
+  }), { csrfBaseUrl: getAuthApiBaseUrl(apiBaseUrl) })
+)
+
+const analysisClient = applyOidcInterceptor(
+  attachCsrfProtection(axios.create({
+    baseURL: analysisBaseUrl,
+    timeout: 20000,
+    withCredentials: true,
+  }), { csrfBaseUrl: getAuthApiBaseUrl(apiBaseUrl) })
+)
 
 const geeApi = {
   getIndices: () => geeClient.get('/indices').then((res) => res.data),
