@@ -161,6 +161,7 @@ const GeeDatasetExtractorModal = ({
             opacity: 0.9,
           })
         }
+        onClose()
         message.success(t('previewSuccess'))
       }
     } catch (err) {

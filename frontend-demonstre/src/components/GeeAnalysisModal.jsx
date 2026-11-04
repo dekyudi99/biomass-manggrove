@@ -464,6 +464,8 @@ const GeeAnalysisModal = ({
         disclaimer: analysisResult.disclaimer,
         opacity: 0.85,
       })
+      onClose()
+      message.success(t('previewActiveOnMap') || 'Preview aktif di peta. Anda dapat membuka hasil analisis kapan saja dari panel atas.')
     }
   }
 

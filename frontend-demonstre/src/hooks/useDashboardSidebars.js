@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const DESKTOP_BREAKPOINT = 1024
+const DESKTOP_BREAKPOINT = 1280
 
 const useDashboardSidebars = () => {
   const [isLeftOpen, setIsLeftOpen] = useState(() => {

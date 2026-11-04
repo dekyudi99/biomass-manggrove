@@ -81,6 +81,14 @@ const Dashboard = () => {
   const [isEditingRoi, setIsEditingRoi] = useState(false)
   const [geePreviewLayer, setGeePreviewLayer] = useState(null)
   const [isLegendMinimized, setIsLegendMinimized] = useState(false)
+  const [isWmsLegendMinimized, setIsWmsLegendMinimized] = useState(false)
+
+  // Jika preview GEE aktif, otomatis ciutkan legenda WMS agar tidak saling menumpuk
+  useEffect(() => {
+    if (geePreviewLayer) {
+      setIsWmsLegendMinimized(true)
+    }
+  }, [geePreviewLayer])
 
   // State untuk Visibilitas AOI Poligon (agar warna hijau tidak menimpa/mengubah warna GEE)
   const [isAoiVisible, setIsAoiVisible] = useState(true)
@@ -279,6 +287,7 @@ const Dashboard = () => {
           onFocusMangroveArea={handleFocusMangroveArea}
           isModelCoverageVisible={isModelCoverageVisible}
           onToggleModelCoverage={() => setIsModelCoverageVisible((prev) => !prev)}
+          isSidebarOpen={isRightOpen}
         />
 
         {/* Layer Visual Batas Wilayah Masker Model Mangrove */}
@@ -337,6 +346,7 @@ const Dashboard = () => {
       <LayerBaseControl
         activeLayer={activeLayer}
         onSelectLayer={setActiveLayer}
+        isSidebarOpen={isLeftOpen}
       />
 
       <GeePreviewIndicator
@@ -352,15 +362,24 @@ const Dashboard = () => {
         }}
         onClearPreview={() => setGeePreviewLayer(null)}
         t={t}
+        isLeftOpen={isLeftOpen}
+        isRightOpen={isRightOpen}
       />
 
-      <div className="pointer-events-none absolute bottom-8 right-16 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end gap-2 overflow-y-auto sm:bottom-6 sm:right-20">
+      <div className={`pointer-events-none absolute bottom-8 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end gap-2 overflow-y-auto transition-all duration-300 ease-in-out ${
+        isRightOpen ? 'right-3 sm:right-[29.5rem]' : 'right-16 sm:right-20'
+      }`}>
         <GeeAnalysisLegend
           previewLayer={geePreviewLayer}
           isMinimized={isLegendMinimized}
           onToggleMinimized={() => setIsLegendMinimized((prev) => !prev)}
         />
-        <WmsLayerLegend visibleLayers={visibleLayers} t={t} />
+        <WmsLayerLegend
+          visibleLayers={visibleLayers}
+          t={t}
+          isMinimized={isWmsLegendMinimized}
+          onToggleMinimized={() => setIsWmsLegendMinimized((prev) => !prev)}
+        />
       </div>
 
       {/* Modal Analisis Komputasi Citra Satelit GEE / Model AGB */}

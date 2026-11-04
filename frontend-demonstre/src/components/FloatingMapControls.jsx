@@ -22,6 +22,7 @@ const FloatingMapControls = ({
   onFocusMangroveArea,
   isModelCoverageVisible = true,
   onToggleModelCoverage,
+  isSidebarOpen = false,
 }) => {
   const map = useMap()
   const { t } = useLanguage()
@@ -124,7 +125,9 @@ const FloatingMapControls = ({
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-8 right-3 sm:bottom-6 sm:right-6 z-[950] flex flex-col gap-1.5 sm:gap-2"
+      className={`absolute bottom-8 right-3 sm:bottom-6 z-[950] flex flex-col gap-1.5 sm:gap-2 transition-all duration-300 ease-in-out ${
+        isSidebarOpen ? 'sm:right-[25.5rem]' : 'sm:right-6'
+      }`}
     >
       {/* Zoom In & Zoom Out */}
       <div className="flex flex-col rounded-2xl bg-white/95 backdrop-blur-md shadow-xl border border-gray-200/80 overflow-hidden">

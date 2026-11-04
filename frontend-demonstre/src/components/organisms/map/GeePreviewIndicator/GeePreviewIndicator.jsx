@@ -5,11 +5,29 @@ const GeePreviewIndicator = ({
   onOpenResults,
   onClearPreview,
   t,
+  isLeftOpen = false,
+  isRightOpen = false,
 }) => {
   if (!previewLayer) return null
 
+  // Hitung posisi horizontal dinamis agar tetap berada di tengah area peta yang terlihat (tidak tertabrak sidebar)
+  const getHorizontalStyle = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 640) {
+      if (isLeftOpen && !isRightOpen) {
+        return { left: 'calc(24rem + (100vw - 24rem) / 2)' }
+      }
+      if (isRightOpen && !isLeftOpen) {
+        return { left: 'calc((100vw - 24rem) / 2)' }
+      }
+    }
+    return { left: '50%' }
+  }
+
   return (
-    <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-[900] bg-white/95 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-lg border border-emerald-300 flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-xs max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar">
+    <div
+      style={getHorizontalStyle()}
+      className="absolute top-16 sm:top-4 -translate-x-1/2 z-[950] bg-white/95 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-lg border border-emerald-300 flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-xs max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar transition-all duration-300 ease-in-out"
+    >
       <span className="flex h-2 w-2 relative shrink-0">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
