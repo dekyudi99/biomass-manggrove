@@ -177,6 +177,61 @@ async def get_raster_info(layer_id: str):
     return await GeoServerService.get_raster_info(layer_id)
 
 
+@router.get("/layers/{layer_id}/raster/info")
+async def get_raster_metadata(layer_id: str):
+    """Mendapatkan metadata teknis raster (CRS native, dimensi, resolusi, nodata)."""
+    return await GeoServerService.get_raster_metadata(layer_id)
+
+
+@router.post("/layers/{layer_id}/raster/identify")
+async def identify_raster_point(
+    layer_id: str,
+    payload: Dict[str, Any] = Body(...),
+):
+    """Identify nilai pixel titik raster berdasarkan lat & lng (WGS84)."""
+    lat = payload.get("lat")
+    lng = payload.get("lng")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="lat dan lng wajib disertakan.")
+    return await GeoServerService.identify_raster(layer_id, float(lat), float(lng))
+
+
+@router.post("/layers/{layer_id}/raster/stats")
+async def calculate_raster_stats(
+    layer_id: str,
+    payload: Dict[str, Any] = Body(...),
+):
+    """Hitung statistik deskriptif dan histogram untuk area BBox."""
+    bbox = payload.get("bbox")
+    if not isinstance(bbox, list) or len(bbox) != 4:
+        raise HTTPException(status_code=400, detail="bbox berupa [minLng, minLat, maxLng, maxLat] wajib disertakan.")
+    band = int(payload.get("band", 1))
+    bins = int(payload.get("bins", 20))
+    return await GeoServerService.get_raster_stats(layer_id, bbox, band=band, bins=bins)
+
+
+@router.post("/layers/{layer_id}/raster/clip")
+async def clip_raster_area(
+    layer_id: str,
+    payload: Dict[str, Any] = Body(...),
+):
+    """Potong dan unduh GeoTIFF raster (styled=true untuk True Color RGB atau styled=false untuk numerical raw)."""
+    bbox = payload.get("bbox")
+    polygon = payload.get("polygon")
+    styled = bool(payload.get("styled", False))
+    content, content_type, disposition = await GeoServerService.clip_raster(
+        layer_id=layer_id,
+        bbox=bbox,
+        polygon=polygon,
+        styled=styled,
+    )
+    headers = {}
+    if disposition:
+        headers["Content-Disposition"] = disposition
+    headers["Cache-Control"] = "no-cache"
+    return Response(content=content, media_type=content_type, headers=headers)
+
+
 @router.post("/layers/{layer_id}/style")
 async def update_layer_style(
     layer_id: str,

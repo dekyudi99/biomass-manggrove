@@ -439,6 +439,50 @@ class GeoServerService:
             style_payload["layer_kind"] = "vector" if style_payload.get("symbol") else "raster"
         return await make_request("POST", "/api/v1/styles/apply", json=style_payload)
 
+    # --- WCS & Raster Ops ---
+    @staticmethod
+    async def get_raster_metadata(layer_id: Any):
+        """Ambil metadata teknis raster (CRS native, dimensi, resolusi, nodata)"""
+        return await make_request("GET", f"/api/v1/layers/{layer_id}/raster/info")
+
+    @staticmethod
+    async def identify_raster(layer_id: Any, lat: float, lng: float):
+        """Identify nilai pixel titik raster (berdasarkan koordinat WGS84 lat, lng)"""
+        return await make_request("POST", f"/api/v1/layers/{layer_id}/raster/identify", json={"lat": lat, "lng": lng})
+
+    @staticmethod
+    async def get_raster_stats(layer_id: Any, bbox: List[float], band: int = 1, bins: int = 20):
+        """Hitung statistik deskriptif dan histogram untuk area BBox"""
+        payload = {"bbox": bbox, "band": band, "bins": bins}
+        return await make_request("POST", f"/api/v1/layers/{layer_id}/raster/stats", json=payload)
+
+    @staticmethod
+    async def clip_raster(layer_id: Any, bbox: Optional[List[float]] = None, polygon: Optional[List[List[float]]] = None, styled: bool = False):
+        """Potong dan unduh GeoTIFF (styled 3-Band RGB atau raw numerik)"""
+        endpoint = f"{get_geoserver_microservice_url()}/api/v1/layers/{layer_id}/raster/clip"
+        headers = get_headers()
+        payload = {"styled": styled}
+        if bbox:
+            payload["bbox"] = bbox
+        if polygon:
+            payload["polygon"] = polygon
+
+        timeout = max(get_geoserver_microservice_timeout(), 120.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            try:
+                resp = await client.post(endpoint, json=payload, headers=headers)
+                if resp.status_code >= 400:
+                    try:
+                        err_detail = resp.json().get("detail", resp.text)
+                    except Exception:
+                        err_detail = resp.text
+                    raise HTTPException(status_code=resp.status_code, detail=err_detail)
+                disposition = resp.headers.get("content-disposition", f'attachment; filename="layer_{layer_id}_clip.tif"')
+                content_type = resp.headers.get("content-type", "image/tiff")
+                return resp.content, content_type, disposition
+            except httpx.RequestError as exc:
+                raise HTTPException(status_code=502, detail=f"Gagal memotong raster: {str(exc)}")
+
     @staticmethod
     async def delete_layer(layer_id: Any):
         res = await make_request("POST", "/api/v1/layers/batch-delete", json={"layer_ids": [str(layer_id)]})
