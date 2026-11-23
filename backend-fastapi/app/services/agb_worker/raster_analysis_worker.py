@@ -480,15 +480,41 @@ def process_claimed_job(
         published_layer = _publish_agb_raster(job, agb_temporary_path)
         os.replace(agb_temporary_path, output_path)
         agb_temporary_path = None
-        result["layer"] = {
-            "name": published_layer.get("geoserver_name")
+        geoserver_layer_name = (
+            published_layer.get("store_name")
+            or published_layer.get("geoserver_name")
             or published_layer.get("layer_name")
             or published_layer.get("name")
-            or f"agb_{job.id}",
+            or f"agb_{job.id}"
+        )
+        display_layer_name = (
+            published_layer.get("layer_name")
+            or published_layer.get("name")
+            or f"agb_{job.id}"
+        )
+        ws_name = published_layer.get("workspace_name")
+        symbology = published_layer.get("symbology")
+        style_name = (
+            symbology.get("style_name")
+            if isinstance(symbology, dict)
+            else published_layer.get("style_name")
+        )
+        result["layer"] = {
+            "name": display_layer_name,
+            "layer_name": display_layer_name,
+            "store_name": published_layer.get("store_name") or geoserver_layer_name,
+            "geoserver_name": geoserver_layer_name,
             "id": published_layer.get("id") or published_layer.get("layer_id"),
-            "workspace_name": published_layer.get("workspace_name"),
+            "workspace_name": ws_name,
             "wms_url": published_layer.get("wms_url"),
-            "wms_layers_param": published_layer.get("wms_layers_param"),
+            "wms_layers_param": published_layer.get("wms_layers_param")
+            or (f"{ws_name}:{geoserver_layer_name}" if ws_name else geoserver_layer_name),
+            "bbox": published_layer.get("bbox"),
+            "epsg": published_layer.get("epsg"),
+            "symbology": symbology,
+            "style_name": style_name,
+            "layer_type": "raster",
+            "type": "raster",
         }
         result["artifact"]["download_url"] = f"/api/analysis/{job.id}/download"
         feature_output_path.unlink(missing_ok=True)

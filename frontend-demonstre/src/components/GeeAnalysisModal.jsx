@@ -181,6 +181,45 @@ const GeeAnalysisModal = ({
   const [analysisJobHistory, setAnalysisJobHistory] = useState([])
   const [analysisNotifications, setAnalysisNotifications] = useState([])
   const [modelInfo, setModelInfo] = useState(null)
+  const [downloadingJobId, setDownloadingJobId] = useState(null)
+
+  const handleDownloadAgbGeoTiff = async (jobId) => {
+    if (!jobId) return
+    setDownloadingJobId(jobId)
+    try {
+      const blob = await geeApi.downloadAnalysisResult(jobId)
+      const blobUrl = window.URL.createObjectURL(new Blob([blob], { type: 'image/tiff' }))
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.setAttribute('download', `agb_${jobId}.tif`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+      message.success('File GeoTIFF hasil prediksi AGB berhasil diunduh!')
+    } catch (error) {
+      console.error('Failed to download AGB GeoTIFF:', error)
+      message.error(
+        error.response?.data?.detail?.message ||
+          error.response?.data?.detail ||
+          'Gagal mengunduh file GeoTIFF AGB.'
+      )
+    } finally {
+      setDownloadingJobId(null)
+    }
+  }
+
+  const handleShowAgbOnMap = (layerObj) => {
+    if (!layerObj || !onEnableAgbLayer) return
+    onEnableAgbLayer(layerObj)
+    if (onToggleAoiFill) {
+      onToggleAoiFill(false)
+    }
+    onClose()
+    message.success(
+      t('previewActiveOnMap') || 'Layer estimasi AGB diaktifkan pada peta.'
+    )
+  }
 
   // State Simpan ke AstraGIS
   const [layerName, setLayerName] = useState('')
@@ -265,10 +304,17 @@ const GeeAnalysisModal = ({
         ])
         if (!['queued', 'running'].includes(updatedJob.status)) {
           if (updatedJob.status === 'succeeded' && updatedJob.result?.layer?.id && onEnableAgbLayer) {
+            const rawLayer = updatedJob.result.layer
+            const gsName =
+              rawLayer.store_name ||
+              rawLayer.geoserver_name ||
+              rawLayer.layer_name ||
+              rawLayer.name
             const layer = {
-              ...updatedJob.result.layer,
-              layer_name: updatedJob.result.layer.name,
-              geoserver_name: updatedJob.result.layer.name,
+              ...rawLayer,
+              layer_name: rawLayer.layer_name || rawLayer.name || gsName,
+              store_name: rawLayer.store_name || gsName,
+              geoserver_name: gsName,
               layer_type: 'raster',
               type: 'raster',
             }
@@ -279,6 +325,9 @@ const GeeAnalysisModal = ({
               ...jobs.filter((job) => job.id !== registeredJob.id),
             ])
             onEnableAgbLayer(registeredJob.result.layer)
+            if (onToggleAoiFill) {
+              onToggleAoiFill(false)
+            }
           }
           const [jobs, items] = await Promise.all([
             geeApi.listAnalysisJobs(),
@@ -978,8 +1027,8 @@ const GeeAnalysisModal = ({
                     {onEnableAgbLayer && (
                       <button
                         type="button"
-                        onClick={() => onEnableAgbLayer(analysisJob.result.layer)}
-                        className="shrink-0 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition"
+                        onClick={() => handleShowAgbOnMap(analysisJob.result.layer)}
+                        className="shrink-0 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition cursor-pointer"
                       >
                         {t('agbOpenLayer')}
                       </button>
@@ -988,12 +1037,17 @@ const GeeAnalysisModal = ({
                 )}
 
                 {analysisJob.result.artifact?.download_url && (
-                  <a
-                    className="mt-1 inline-flex items-center gap-1.5 font-bold text-xs text-emerald-700 hover:text-emerald-800 underline"
-                    href={geeApi.getAnalysisDownloadUrl(analysisJob.id)}
+                  <button
+                    type="button"
+                    disabled={downloadingJobId === analysisJob.id}
+                    onClick={() => handleDownloadAgbGeoTiff(analysisJob.id)}
+                    className="mt-1 inline-flex items-center gap-1.5 font-bold text-xs text-emerald-700 hover:text-emerald-800 underline cursor-pointer disabled:opacity-60 w-fit"
                   >
-                    <DownloadOutlined /> {t('agbDownloadPredictionRaster')}
-                  </a>
+                    <DownloadOutlined />{' '}
+                    {downloadingJobId === analysisJob.id
+                      ? 'Mengunduh...'
+                      : t('agbDownloadPredictionRaster')}
+                  </button>
                 )}
                 {(analysisJob.result.warnings || []).map((warning) => (
                   <p key={warning} className="mt-1 text-amber-800">{warning}</p>
@@ -1119,19 +1173,21 @@ const GeeAnalysisModal = ({
                           {job.result?.layer && onEnableAgbLayer && (
                             <button
                               type="button"
-                              onClick={() => onEnableAgbLayer(job.result.layer)}
+                              onClick={() => handleShowAgbOnMap(job.result.layer)}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded transition cursor-pointer"
                             >
                               {t('agbOpenLayer')}
                             </button>
                           )}
                           {job.result?.artifact?.download_url && (
-                            <a
-                              className="text-emerald-700 hover:text-emerald-800 font-semibold underline text-[10px]"
-                              href={geeApi.getAnalysisDownloadUrl(job.id)}
+                            <button
+                              type="button"
+                              disabled={downloadingJobId === job.id}
+                              onClick={() => handleDownloadAgbGeoTiff(job.id)}
+                              className="text-emerald-700 hover:text-emerald-800 font-semibold underline text-[10px] cursor-pointer disabled:opacity-60"
                             >
-                              GeoTIFF
-                            </a>
+                              {downloadingJobId === job.id ? '...' : 'GeoTIFF'}
+                            </button>
                           )}
                         </div>
                       </div>

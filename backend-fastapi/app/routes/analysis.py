@@ -150,15 +150,31 @@ def register_analysis_layer(
     stored_layer = job.result["layer"]
     if not isinstance(submitted_layer, dict) or str(submitted_layer.get("id")) != str(stored_layer.get("id")):
         raise HTTPException(status_code=422, detail={"code": "ANALYSIS_LAYER_MISMATCH"})
+    geoserver_name = (
+        submitted_layer.get("store_name")
+        or stored_layer.get("store_name")
+        or submitted_layer.get("geoserver_name")
+        or stored_layer.get("geoserver_name")
+        or stored_layer.get("name")
+    )
+    display_name = (
+        stored_layer.get("layer_name")
+        or stored_layer.get("name")
+        or submitted_layer.get("layer_name")
+        or geoserver_name
+    )
     layer = {
         **stored_layer,
-        "layer_name": stored_layer.get("name"),
-        "geoserver_name": stored_layer.get("name"),
+        **{k: v for k, v in submitted_layer.items() if v is not None},
+        "name": display_name,
+        "layer_name": display_name,
+        "store_name": submitted_layer.get("store_name") or stored_layer.get("store_name") or geoserver_name,
+        "geoserver_name": geoserver_name,
         "layer_type": "raster",
         "type": "raster",
     }
     if layer.get("workspace_name") and layer.get("geoserver_name"):
-        layer["wms_layers_param"] = layer.get("wms_layers_param") or (
+        layer["wms_layers_param"] = (
             f"{layer['workspace_name']}:{layer['geoserver_name']}"
         )
     warnings = list(job.warnings or [])

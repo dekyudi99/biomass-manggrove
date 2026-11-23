@@ -360,6 +360,7 @@ class GeoServerService:
             content_type="image/tiff",
             form_data={
                 "layer_name": metadata["layer_name"],
+                "store_name": metadata["layer_name"],
                 "title": metadata["title"],
                 "abstract": abstract,
                 "description": abstract,

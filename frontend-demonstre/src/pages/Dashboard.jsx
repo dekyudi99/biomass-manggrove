@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { message } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   MapContainer,
   TileLayer,
@@ -8,6 +9,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import LayerBaseControl from '../components/LayerBaseControl'
 import { BASE_LAYERS } from '../constants/layers'
+import { QUERY_KEYS } from '../constants/queryKeys'
+import layerApi from '../api/LayerApi'
 import Sidebar from '../components/Sidebar'
 import SpatialSidebar from '../components/SpatialSidebar/SpatialSidebar'
 import MapFlyController from '../components/MapFlyController'
@@ -48,6 +51,7 @@ const Dashboard = () => {
   }, [])
 
   const { t, currentLanguage } = useLanguage()
+  const queryClient = useQueryClient()
   const defaultCenter = [ 8.363693, 98.640747 ]
   const [activeLayer, setActiveLayer] = useState('osm')
   const currentLayer = BASE_LAYERS[activeLayer]
@@ -182,6 +186,51 @@ const Dashboard = () => {
     })
     setIsModelCoverageVisible(true)
     message.success(t('focusedMangroveArea') || 'Peta diarahkan ke wilayah hutan mangrove Ranong (Thailand Selatan)')
+  }
+
+  const handleEnableAgbLayer = async (rawLayer) => {
+    if (!rawLayer) return
+    setIsAoiFillVisible(false)
+
+    let resolvedLayer = {
+      ...rawLayer,
+      layer_type: 'raster',
+      type: 'raster',
+    }
+
+    try {
+      const res = await layerApi.list()
+      const catalogLayers = Array.isArray(res.data) ? res.data : res.data?.data || []
+      queryClient.setQueryData(QUERY_KEYS.layers, catalogLayers)
+
+      const rawId = String(rawLayer.id || '')
+      const rawName = String(rawLayer.layer_name || rawLayer.name || '').toLowerCase()
+      const matched = catalogLayers.find(
+        (item) =>
+          (rawId && String(item.id) === rawId) ||
+          (rawName && String(item.layer_name || '').toLowerCase() === rawName) ||
+          (rawName && String(item.store_name || '').toLowerCase() === rawName)
+      )
+      if (matched) {
+        resolvedLayer = {
+          ...rawLayer,
+          ...matched,
+          layer_type: 'raster',
+          type: 'raster',
+        }
+      }
+    } catch {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.layers })
+    }
+
+    handleToggleLayer(resolvedLayer, true)
+    if (!resolvedLayer.bbox && areaPoints && areaPoints.length >= 3) {
+      setFlyTarget({
+        bbox: getCoordinatesBbox(areaPoints),
+        epsg: 4326,
+        timestamp: Date.now(),
+      })
+    }
   }
 
   return (
@@ -391,7 +440,7 @@ const Dashboard = () => {
         initialSection={geeModalSection}
         areaPoints={areaPoints}
         areaHectares={areaHectares}
-        onEnableAgbLayer={(layer) => handleToggleLayer(layer, true)}
+        onEnableAgbLayer={handleEnableAgbLayer}
         onApplyGeePreviewLayer={setGeePreviewLayer}
         onClearGeePreviewLayer={() => setGeePreviewLayer(null)}
         activeGeeLayer={geePreviewLayer}

@@ -29,6 +29,10 @@ const geeApi = {
   createAnalysisJob: (payload) => analysisClient.post('', payload).then((res) => res.data),
   getAnalysisJob: (jobId) => analysisClient.get(`/${jobId}`).then((res) => res.data),
   getAnalysisDownloadUrl: (jobId) => `${analysisBaseUrl}/${jobId}/download`,
+  downloadAnalysisResult: (jobId) =>
+    analysisClient
+      .get(`/${jobId}/download`, { responseType: 'blob', timeout: 120000 })
+      .then((res) => res.data),
   registerAnalysisLayer: (jobId, layer) => analysisClient.post(`/${jobId}/layer`, { layer }).then((res) => res.data),
   listAnalysisJobs: () => analysisClient.get('').then((res) => res.data),
   cancelAnalysisJob: (jobId) => analysisClient.delete(`/${jobId}`).then((res) => res.data),
