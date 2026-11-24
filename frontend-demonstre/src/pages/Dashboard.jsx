@@ -336,7 +336,6 @@ const Dashboard = () => {
           onFocusMangroveArea={handleFocusMangroveArea}
           isModelCoverageVisible={isModelCoverageVisible}
           onToggleModelCoverage={() => setIsModelCoverageVisible((prev) => !prev)}
-          isSidebarOpen={isRightOpen}
         />
 
         {/* Layer Visual Batas Wilayah Masker Model Mangrove */}
@@ -398,9 +397,7 @@ const Dashboard = () => {
       />
 
       {/* Floating Panel Kontrol Bawah: Preview Indicator & Kartu Legenda */}
-      <div className={`pointer-events-none absolute bottom-8 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end sm:flex-row sm:items-end gap-2.5 transition-all duration-300 ease-in-out ${
-        isRightOpen ? 'right-3 sm:right-[26rem]' : 'right-16 sm:right-20'
-      }`}>
+      <div className="pointer-events-none absolute bottom-8 right-16 sm:bottom-6 sm:right-20 z-[900] flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-6rem)] flex-col-reverse items-end sm:flex-row sm:items-end gap-2.5 transition-all duration-300 ease-in-out">
         {/* Tombol / Badge Preview GEE (berada di sebelah KIRI legenda di desktop) */}
         <GeePreviewIndicator
           previewLayer={geePreviewLayer}

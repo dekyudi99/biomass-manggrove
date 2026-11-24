@@ -228,7 +228,7 @@ const SpatialSidebar = ({
 
         {/* Panel Card Utama */}
         {isOpen && (
-          <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm max-h-[calc(100dvh-5.5rem)] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/80 flex flex-col overflow-hidden text-gray-800 transition-all overscroll-contain">
+          <div className="pointer-events-auto w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm max-h-[calc(100dvh-25rem)] sm:max-h-[calc(100dvh-27.5rem)] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/80 flex flex-col overflow-hidden text-gray-800 transition-all overscroll-contain">
             {/* Header Tabs Navigation */}
             <div className="flex items-center border-b border-gray-100 bg-gray-50/70 p-1.5 gap-1">
               <div className="flex flex-1 items-center gap-1 overflow-x-auto">
